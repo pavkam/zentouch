@@ -9,6 +9,7 @@ set -euo pipefail
 }
 zentouch_ci_dir=$(mktemp -d "$RUNNER_TEMP/zentouch-signing.XXXXXX")
 zentouch_ci_password=$(openssl rand -hex 24)
+print "::add-mask::$zentouch_ci_password"
 zentouch_ci_keychain="$zentouch_ci_dir/ci.keychain-db"
 cat > "$zentouch_ci_dir/certificate.cnf" <<'CONFIG'
 [req]
@@ -22,10 +23,11 @@ basicConstraints = critical,CA:false
 keyUsage = critical,digitalSignature
 extendedKeyUsage = critical,codeSigning
 CONFIG
-openssl req -x509 -newkey rsa:2048 -nodes -days 2 -config "$zentouch_ci_dir/certificate.cnf" \
+openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 2 -config "$zentouch_ci_dir/certificate.cnf" \
     -keyout "$zentouch_ci_dir/key.pem" -out "$zentouch_ci_dir/certificate.pem" 2>/dev/null
 openssl pkcs12 -export -inkey "$zentouch_ci_dir/key.pem" -in "$zentouch_ci_dir/certificate.pem" \
-    -out "$zentouch_ci_dir/identity.p12" -passout "pass:$zentouch_ci_password"
+    -out "$zentouch_ci_dir/identity.p12" -passout "pass:$zentouch_ci_password" \
+    -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1
 security create-keychain -p "$zentouch_ci_password" "$zentouch_ci_keychain"
 security set-keychain-settings -lut 21600 "$zentouch_ci_keychain"
 security unlock-keychain -p "$zentouch_ci_password" "$zentouch_ci_keychain"
