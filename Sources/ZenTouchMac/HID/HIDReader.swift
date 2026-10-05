@@ -10,12 +10,17 @@ func hidStatus(_ result: IOReturn) -> String {
 }
 
 public final class HIDReader: TouchReading {
-    private let manager = IOHIDManagerCreate(kCFAllocatorDefault, 0)
+    // Discovery owns no device connection. Closing a capture session must not
+    // close the manager and prevent it from observing a returning USB device.
+    private let manager = IOHIDManagerCreate(
+        kCFAllocatorDefault, IOHIDManagerOptions.independentDevices.rawValue)
     private var device: IOHIDDevice?
     private var originalMode: [UInt8]?
     private var buffer: UnsafeMutablePointer<UInt8>?
     private var decoder = EXC3200Decoder()
     private var opened = false
+    private var deviceScheduled = false
+    private var discoveryOpened = false
     private var reportCount = 0
     private var frameCount = 0
     private var lastDevices: [[String: Any]] = []
@@ -53,9 +58,12 @@ public final class HIDReader: TouchReading {
                 if reader.device == removed { reader.onDisconnect?() }
             }, Unmanaged.passUnretained(self).toOpaque())
         IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
+        openDiscovery()
     }
 
     public func devices() -> [IOHIDDevice] {
+        precondition(Thread.isMainThread)
+        openDiscovery()
         let devices = Array((IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>) ?? [])
         let details = devices.map(deviceDetails).sorted {
             String(describing: $0["LocationID"]) < String(describing: $1["LocationID"])
@@ -65,6 +73,13 @@ public final class HIDReader: TouchReading {
             lastDevices = details
         }
         return devices
+    }
+
+    private func openDiscovery() {
+        guard !discoveryOpened else { return }
+        let result = IOHIDManagerOpen(manager, 0)
+        discoveryOpened = result == kIOReturnSuccess
+        diagnostics.record("hid.discovery.open", ["result": hidStatus(result), "independentDevices": true])
     }
 
     public func start(seize: Bool, multitouch: Bool) throws {
@@ -97,11 +112,10 @@ public final class HIDReader: TouchReading {
                 message: "This controller has a different HID layout. Capture its descriptor before enabling input.")
         }
         let options = seize ? IOOptionBits(kIOHIDOptionsTypeSeizeDevice) : 0
-        let result = IOHIDManagerOpen(manager, options)
+        let result = IOHIDDeviceOpen(found, options)
         diagnostics.record(
             "hid.open", ["result": hidStatus(result), "options": options, "device": deviceDetails(found)])
         guard result == kIOReturnSuccess else {
-            IOHIDManagerClose(manager, 0)
             throw ZenError(
                 message:
                     "HID open failed (\(hidStatus(result))). Grant ZenTouch Input Monitoring, quit it, and reopen it. Exclusive access also requires that other touch drivers are stopped."
@@ -180,6 +194,10 @@ public final class HIDReader: TouchReading {
                         reader.onError?("Invalid touch report: \(error)")
                     }
                 }, Unmanaged.passUnretained(self).toOpaque())
+            // Independent manager scheduling deliberately does not propagate
+            // to devices. Only the captured device receives report callbacks.
+            IOHIDDeviceScheduleWithRunLoop(found, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
+            deviceScheduled = true
             diagnostics.record(
                 "hid.listening", ["runLoopMode": CFRunLoopMode.commonModes.rawValue as String, "bufferSize": 64])
         } catch {
@@ -224,6 +242,10 @@ public final class HIDReader: TouchReading {
         var restoreError: String?
         if opened { diagnostics.record("hid.stop", ["reports": reportCount, "frames": frameCount]) }
         if let device {
+            if deviceScheduled {
+                IOHIDDeviceUnscheduleFromRunLoop(device, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
+                deviceScheduled = false
+            }
             if let buffer { IOHIDDeviceRegisterInputReportCallback(device, buffer, 64, nil, nil) }
             if let originalMode {
                 do {
@@ -235,11 +257,12 @@ public final class HIDReader: TouchReading {
                         "Could not restore the controller: \(error.localizedDescription) Reconnect its USB cable."
                 }
             }
+            if opened {
+                let result = IOHIDDeviceClose(device, 0)
+                diagnostics.record("hid.close", ["result": hidStatus(result)])
+            }
         }
-        if opened {
-            IOHIDManagerClose(manager, 0)
-            opened = false
-        }
+        opened = false
         buffer?.deinitialize(count: 64)
         buffer?.deallocate()
         buffer = nil
@@ -254,5 +277,6 @@ public final class HIDReader: TouchReading {
         IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
         IOHIDManagerRegisterDeviceRemovalCallback(manager, nil, nil)
         IOHIDManagerRegisterDeviceMatchingCallback(manager, nil, nil)
+        if discoveryOpened { IOHIDManagerClose(manager, 0) }
     }
 }

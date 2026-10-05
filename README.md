@@ -12,7 +12,7 @@ SPDX-License-Identifier: MIT
 
 ZenTouch brings taps, dragging, right-clicks, two-finger scrolling and three-finger swipes to the **ASUS ZenScreen Touch MB16AMTR** on macOS. It runs in the menu bar. Close Settings and carry on using the screen.
 
-The tested controller is **eGalaxTouch EXC3200-2505**, USB **0eef:c000**. ZenTouch verifies its exact HID descriptor before translating input. Clicks, scrolling and operation with Settings closed have been confirmed on the attached Mac running macOS 27. Other controllers need their own verified profile.
+The tested controller is **eGalaxTouch EXC3200-2505**, USB **0eef:c000**. ZenTouch verifies its exact HID descriptor before translating input. Clicks, scrolling, three-finger swipe up opening Mission Control, operation with Settings closed and recovery after a monitor power cycle are confirmed on the attached Mac running macOS 27. Other controllers need their own verified profile.
 
 ## Install
 
@@ -83,7 +83,7 @@ ZenTouch remembers the selected display and whether input was enabled. Sleep or 
 
 ## Scope
 
-ZenTouch translates touch reports into public macOS mouse and scroll events. It does not currently provide complete Apple trackpad behavior or produce native AppKit direct-touch events. Horizontal three-finger swipes send phased Dock gestures through an isolated private adapter, including the raw HID payload required on macOS 27. Vertical swipes invoke the Dock’s native Mission Control/App Exposé command once on lift; they do not animate in step with your fingers. This behavior can change with macOS updates. Pinch also uses undocumented fields. Three-finger swipes still need live confirmation; automated checks verify recognition, cancellation and event encoding. Six-to-ten-contact continuation is covered synthetically and still needs live verification.
+ZenTouch translates touch reports into public macOS mouse and scroll events. It does not currently provide complete Apple trackpad behavior or produce native AppKit direct-touch events. Horizontal three-finger swipes send phased Dock gestures through an isolated private adapter, including the raw HID payload required on macOS 27. Vertical swipes invoke the Dock’s native Mission Control/App Exposé command once on lift; they do not animate in step with your fingers. This behavior can change with macOS updates. Pinch also uses undocumented fields. Mission Control is confirmed; desktop switching and App Exposé still need live confirmation. Automated checks verify recognition, cancellation and event encoding. Six-to-ten-contact continuation is covered synthetically and still needs live verification.
 
 This is an independent project, unaffiliated with ASUS or Apple.
 

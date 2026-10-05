@@ -11,10 +11,10 @@ SPDX-License-Identifier: MIT
 - Include the raw IOHID payload required by macOS 27, isolated from public mouse/scroll posting.
 - Recognize sequential finger placement and suppress residual contacts after lift or cancellation.
 - Add a saved Settings toggle, per-phase swipe logs and active Space change diagnostics.
-- Restore input after monitor power saving or USB/display loss without restarting the app. Keep HID discovery scheduled, preserve Active intent, back off reopen failures and match the selected screen by stable UUID.
+- Restore input after monitor power saving or USB/display loss without restarting the app. Keep independent HID discovery open while capture stops, preserve Active intent, back off reopen failures and match the selected screen by stable UUID.
 - Add recognition, cancellation, event encoding, session failure and wake/reconnect tests (51 checks total).
 - Use the Dock’s native commands for vertical swipes on lift; avoid the unresponsive animated vertical event path. Short, reversed or cancelled swipes do not toggle Mission Control.
-- Live native swipe and monitor power-cycle confirmation remains pending.
+- Three-finger swipe up opening Mission Control and touch recovery after a monitor power cycle are confirmed on the attached MB16AMTR. Desktop switching and App Exposé still need live confirmation.
 
 ## 0.3.0 — 2026-10-05
 
