@@ -36,7 +36,7 @@ The first route is `IOHIDManager → report decoder → complete contact frames 
 
 [Touch-Up implements this approach for touchscreens](https://github.com/shueber/Touch-Up). Its pinch emitter uses private gesture fields. [macos-trackpad-companion](https://github.com/scottlamb/macos-trackpad-companion) demonstrates a more elaborate gesture event serializer and animated Dock swipes, while explicitly describing its implementation as a prototype. These are useful primary-source implementations, not a supported Apple contract.
 
-The local implementation uses public mouse/scroll posting and isolates a small experimental pinch adapter. It doesn't silently replace a pinch with a keyboard zoom shortcut.
+The local implementation uses public mouse/scroll posting and isolates experimental pinch and native three-finger Dock swipe adapters. The Dock path sends phased gestures, rather than keyboard shortcuts. Its macOS 27 serialized raw IOHID payload follows [iss](https://github.com/joshuarli/iss); the recognizer and encoding are covered by automated checks, while live OS behavior remains pending confirmation.
 
 ## Virtual trackpad
 
@@ -57,7 +57,8 @@ The documented APIs describe receiving Sidecar touches. They don't document a pr
 1. Extend verified one-, two-, three-finger and lift capture to six-to-ten fingers. The first successful live test decoded 1,370 report-6 frames without errors. Feature report 5 writes succeed but its readback remains mode 0 despite simultaneous contacts, so input packets confirm multi-touch. Verify restoration after stopping.
 2. Verify pointer alignment at all four corners of the ZenScreen and exclusive access without duplicate mouse clicks.
 3. Verify tap, drag cancellation, two-finger scroll, sequential finger lift and unplug during a drag.
-4. Test the experimental pinch adapter in Safari, Preview, Photos and Maps. If gesture recognizers reject it, implement and validate the serialized HID gesture payload separately.
-5. Investigate the macOS 27 direct-touch producer path and virtual trackpad binding only against live evidence; neither is established by this prototype.
+4. Confirm three-finger horizontal desktop swipes, upward Mission Control and downward App Exposé on the actual screen; check cancellation and Settings opt-out.
+5. Test the experimental pinch adapter in Safari, Preview, Photos and Maps. If gesture recognizers reject it, implement and validate the serialized HID gesture payload separately.
+6. Investigate the macOS 27 direct-touch producer path and virtual trackpad binding only against live evidence; neither is established by this prototype.
 
 The hardware descriptor gives us a concrete input path. Native trackpad parity remains unverified.

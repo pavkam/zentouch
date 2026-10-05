@@ -40,3 +40,9 @@ The app's `--smoke-test` option checks its own menu bar, activation policy, icon
 - Display rotation is restricted to 0°. Other ZenScreen controllers are rejected unless their exact profile is supported.
 - The app is locally certificate-signed, with hardened runtime enabled. It is not a notarized Developer ID release for public distribution. The release artifacts target this Mac's arm64 architecture.
 - Command Line Tools lacks the test frameworks in this environment, so the standalone check runner supplies deterministic failures without external dependencies. The selected native SwiftPM backend currently emits a deprecation warning.
+
+## 0.4.0 three-finger update
+
+The suite now passes 44 checks, adding staged three-finger placement, coherent movement, axis locking, cumulative phases, lift suppression, reversal, stale-velocity avoidance, unexpected-contact cancellation and session failure cleanup. Native Dock event tests inspect field encoding, explicit packed HID byte offsets, both compatibility paths, invalid input rejection and injected session-tap routing without posting real input.
+
+The installed signed 0.4.0 bundle retains its designated signing requirement and all three permission checks. Settings passes the default/minimum/large layout smoke check with the new toggle. Local DMG/ZIP checks pass relocation, signatures, profile recovery and checksums. Native three-finger OS behavior remains awaiting a physical test; these checks do not establish complete trackpad parity.
