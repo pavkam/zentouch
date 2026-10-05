@@ -20,12 +20,14 @@ public struct DisplayGeometry: Equatable {
 public struct ScreenTarget: Equatable {
     public let id: CGDirectDisplayID
     public let name: String
-    public init(id: CGDirectDisplayID, name: String) {
+    public let uuid: String?
+    public init(id: CGDirectDisplayID, name: String, uuid: String? = nil) {
         self.id = id
         self.name = name
+        self.uuid = uuid
     }
     public var geometry: DisplayGeometry? {
-        guard CGDisplayIsOnline(id) != 0 else { return nil }
+        guard CGDisplayIsOnline(id) != 0, CGDisplayIsAsleep(id) == 0 else { return nil }
         return DisplayGeometry(bounds: CGDisplayBounds(id), rotation: CGDisplayRotation(id))
     }
     public static var all: [ScreenTarget] {
@@ -33,8 +35,23 @@ public struct ScreenTarget: Equatable {
             guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
                 return nil
             }
-            return ScreenTarget(id: number.uint32Value, name: screen.localizedName)
+            let id = number.uint32Value
+            let uuid = CGDisplayCreateUUIDFromDisplayID(id).map {
+                CFUUIDCreateString(nil, $0.takeRetainedValue()) as String
+            }
+            return ScreenTarget(id: id, name: screen.localizedName, uuid: uuid)
         }
     }
     public static var zenScreen: ScreenTarget? { all.first { $0.name.contains("MB16AM") } }
+}
+
+/// Display IDs can change after monitor sleep. A saved UUID must never silently
+/// resolve to another display that happens to inherit its old numeric ID.
+public enum DisplaySelection {
+    public static func resolve(id: UInt32?, uuid: String?, in targets: [ScreenTarget]) -> ScreenTarget? {
+        if let uuid { return targets.first { $0.uuid == uuid } }
+        if let id, let exact = targets.first(where: { $0.id == id }) { return exact }
+        let screens = targets.filter { $0.name.contains("MB16AM") }
+        return screens.count == 1 ? screens.first : nil
+    }
 }

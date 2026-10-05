@@ -30,7 +30,14 @@ final class AppPreferences {
         }
     }
     func selectedTarget(in targets: [ScreenTarget]) -> ScreenTarget? {
-        if let displayID { return targets.first { $0.id == displayID } }
-        return targets.first { $0.name.contains("MB16AM") }
+        DisplaySelection.resolve(id: displayID, uuid: defaults.string(forKey: "selectedDisplayUUID"), in: targets)
+    }
+    func select(_ target: ScreenTarget?) {
+        displayID = target?.id
+        if let uuid = target?.uuid {
+            defaults.set(uuid, forKey: "selectedDisplayUUID")
+        } else {
+            defaults.removeObject(forKey: "selectedDisplayUUID")
+        }
     }
 }

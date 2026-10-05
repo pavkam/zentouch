@@ -119,7 +119,7 @@ public final class TouchSession {
             self.onStatus?(message)
         }
         reader.onDisconnect = { [weak self] in
-            self?.stop(reason: "Touch controller disconnected. Reconnect it and enable input again.")
+            self?.stop(reason: "Touch controller disconnected. Waiting for it to return.")
         }
         do { try reader.start(seize: kind == .input, multitouch: multitouch) } catch {
             _ = reader.stop()
@@ -144,6 +144,10 @@ public final class TouchSession {
 
     public func poll() {
         guard state.isRunning, validateEnvironment() else { return }
+        guard reader.isConnected else {
+            stop(reason: "Touch controller unavailable. Waiting for it to return.")
+            return
+        }
         let now = environment.now()
         if now - lastHeartbeatAt >= 5 {
             lastHeartbeatAt = now

@@ -23,7 +23,8 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     private var latestStatistics = ReportStatistics()
     private var suspension: SuspensionReasons = []
     private var suspended: Bool { !suspension.isEmpty }
-    private var wantsResume = false
+    private lazy var recovery = SessionRecovery(session: session)
+    private var dockTrace: DockSwipeTrace?
     private var isTerminating = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -47,12 +48,31 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             runSmokeTest(output: URL(fileURLWithPath: args[index + 1]))
             return
         }
-        wantsResume = preferences.inputEnabled || args.contains("--enable-input")
+        if let index = args.firstIndex(of: "--probe-system-gesture"), args.indices.contains(index + 1) {
+            refresh(allowResume: false)
+            let action: SystemGestureAction = args[index + 1] == "up" ? .missionControl : .appExpose
+            do {
+                guard ["up", "down"].contains(args[index + 1]), PermissionState.current.canBridge else {
+                    throw ZenError(message: "Probe requires up/down and both existing grants.")
+                }
+                try DockActions.perform(action)
+                diagnostics.record("diagnostic.systemGesture.sent", ["action": action.rawValue])
+            } catch { diagnostics.record("diagnostic.systemGesture.error", ["error": String(describing: error)]) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
+            return
+        }
+        recovery.request(preferences.inputEnabled || args.contains("--enable-input"))
         if args.contains("--enable-input") { preferences.inputEnabled = true }
-        refresh()
+        if args.contains("--trace-dock-swipes") {
+            let trace = DockSwipeTrace()
+            if trace.start() { dockTrace = trace }
+        }
         if args.contains("--test-touch") {
             preferences.inputEnabled = false
-            wantsResume = false
+            recovery.request(false)
+        }
+        refresh()
+        if args.contains("--test-touch") {
             showSettings()
             start(.contacts)
         } else if args.contains("--show-settings") || !PermissionState.current.canBridge {
@@ -64,9 +84,8 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         session.onFrame = { [weak self] frame in self?.latestFrame = frame }
         session.onReport = { [weak self] counts in self?.latestStatistics = counts }
         session.onStatus = { [weak self] message in self?.setMessage(message) }
-        session.onState = { [weak self] state in
+        session.onState = { [weak self] _ in
             guard let self else { return }
-            if !state.isRunning { self.wantsResume = false }
             self.updatePresentation()
         }
     }
@@ -75,7 +94,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         let menu = MenuBarController()
         menu.onToggle = { [weak self] in
             guard let self else { return }
-            if self.session.state == .running(.input) {
+            if self.recovery.requested {
                 self.stop()
             } else {
                 if self.session.state.isRunning { self.stop() }
@@ -87,6 +106,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             if self.session.state == .running(.contacts) {
                 self.stop()
             } else {
+                if self.session.state.isRunning { self.stop() }
                 self.showSettings()
                 self.start(.contacts)
             }
@@ -110,7 +130,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             view.onAccessibilitySettings = { [weak self] in self?.openPrivacy(input: false) }
             view.onLogs = { [weak self] in self?.showLogs() }
             view.onSelectDisplay = { [weak self] target in
-                self?.preferences.displayID = target?.id
+                self?.preferences.select(target)
                 self?.updatePresentation()
             }
             view.onPinchChange = { [weak self] enabled in self?.preferences.experimentalPinch = enabled }
@@ -126,20 +146,23 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         guard !session.state.isRunning, !suspended else { return }
         diagnostics.record("app.start", ["kind": kind.rawValue])
         let target = preferences.selectedTarget(in: targets)
+        preferences.inputEnabled = kind == .input
+        recovery.request(kind == .input)
         do {
-            try session.start(
-                kind: kind, target: target, pinch: preferences.experimentalPinch,
-                swipes: preferences.threeFingerSwipes)
-            preferences.inputEnabled = kind == .input
-            if let target, kind == .input { preferences.displayID = target.id }
+            if kind == .input {
+                try recovery.startInput(
+                    target: target, pinch: preferences.experimentalPinch,
+                    swipes: preferences.threeFingerSwipes)
+                if let target { preferences.select(target) }
+            } else {
+                try session.start(kind: kind, target: target)
+            }
             latestStatistics = reader.statistics
-            wantsResume = false
             setMessage(
                 kind == .input
                     ? "Touch input is active. Tap or drag with one finger; scroll with two; swipe with three."
                     : "Testing finger contacts. This test sends no clicks or scrolling.")
         } catch {
-            wantsResume = false
             setMessage(error.localizedDescription)
             diagnostics.record("app.start.error", ["error": error.localizedDescription])
             showSettings()
@@ -150,8 +173,10 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     private func stop() {
         diagnostics.record("app.click", ["button": "Stop"])
         preferences.inputEnabled = false
-        wantsResume = false
+        recovery.request(false)
+        let wasRunning = session.state.isRunning
         session.stop()
+        if !wasRunning { setMessage("Touch input stopped. Automatic resuming is disabled.") }
         updatePresentation()
     }
 
@@ -169,18 +194,30 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                     "accessibility": permissions.accessibility, "eventPosting": permissions.eventPosting,
                 ])
         }
-        session.poll()
-        if allowResume, wantsResume, !suspended, !session.state.isRunning {
-            if permissions.canBridge, controllerAvailable,
-                let target = preferences.selectedTarget(in: targets), target.geometry?.supported == true
-            {
-                start(.input)
-            } else {
+        let target = preferences.selectedTarget(in: targets)
+        if allowResume {
+            let result = recovery.refresh(
+                available: permissions.canBridge && controllerAvailable && target?.geometry?.supported == true,
+                suspended: suspended, target: target, pinch: preferences.experimentalPinch,
+                swipes: preferences.threeFingerSwipes)
+            switch result {
+            case .idle: break
+            case .waiting:
                 setMessage(
                     !permissions.canBridge
                         ? "Allow both permissions to enable touch input."
                         : "Waiting for the selected ZenScreen and its USB touch controller.")
+            case .started:
+                if let target { preferences.select(target) }
+                latestStatistics = reader.statistics
+                diagnostics.record("app.input.resumed")
+                setMessage("Touch input resumed automatically.")
+            case .failed(let error):
+                diagnostics.record("app.input.retry", ["error": error])
+                setMessage(error)
             }
+        } else {
+            session.poll()
         }
         updatePresentation()
     }
@@ -197,11 +234,11 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         let selected = preferences.selectedTarget(in: targets)
         menuBar?.update(
             state: session.state, permissions: permissions, targetAvailable: selected?.geometry?.supported == true,
-            controllerAvailable: controllerAvailable)
+            controllerAvailable: controllerAvailable, inputRequested: recovery.requested)
         settings?.update(
             state: session.state, permissions: permissions, targets: targets, selected: selected,
             controllerAvailable: controllerAvailable, experimentalPinch: preferences.experimentalPinch,
-            threeFingerSwipes: preferences.threeFingerSwipes, message: message
+            threeFingerSwipes: preferences.threeFingerSwipes, inputRequested: recovery.requested, message: message
         )
     }
     private func openPrivacy(input: Bool) {
@@ -242,6 +279,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         let pauses: [(Notification.Name, SuspensionReasons)] = [
             (NSWorkspace.willSleepNotification, .sleep),
             (NSWorkspace.sessionDidResignActiveNotification, .inactiveSession),
+            (NSWorkspace.screensDidSleepNotification, .displaySleep),
         ]
         for (name, reason) in pauses {
             observe(workspace, name) { [weak self] in
@@ -253,12 +291,18 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         let resumes: [(Notification.Name, SuspensionReasons)] = [
             (NSWorkspace.didWakeNotification, .sleep),
             (NSWorkspace.sessionDidBecomeActiveNotification, .inactiveSession),
+            (NSWorkspace.screensDidWakeNotification, .displaySleep),
         ]
         for (name, reason) in resumes {
             observe(workspace, name) { [weak self] in
                 guard let self else { return }
                 self.suspension.remove(reason)
-                self.wantsResume = self.preferences.inputEnabled
+                if reason == .displaySleep {
+                    // Reapply multi-touch mode even if USB stayed enumerated
+                    // while the monitor's firmware powered its controller down.
+                    self.session.stop(reason: "Reinitializing touch input after display wake.")
+                }
+                self.recovery.request(self.preferences.inputEnabled)
                 self.refresh()
             }
         }
@@ -275,6 +319,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         refreshTimer?.invalidate()
         previewTimer?.invalidate()
         session.stop(reason: "ZenTouch is quitting.")
+        dockTrace?.stop()
         for (center, token) in observers { center.removeObserver(token) }
         for signal in signals { signal.cancel() }
         diagnostics.record("app.cleanup.complete")
@@ -313,6 +358,14 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 inspect(root)
             }
             window.setFrame(originalFrame, display: true)
+            // A paused/absent controller must not trap the user in auto-resume.
+            self.menuBar?.update(
+                state: .stopped, permissions: .current, targetAvailable: false,
+                controllerAvailable: false, inputRequested: true)
+            self.settings?.update(
+                state: .stopped, permissions: .current, targets: [], selected: nil,
+                controllerAvailable: false, experimentalPinch: false, threeFingerSwipes: true,
+                inputRequested: true, message: "Waiting for the controller.")
             let report: [String: Any] = [
                 "name": AppIdentity.name, "version": AppIdentity.version,
                 "bundleID": Bundle.main.bundleIdentifier ?? "",
@@ -322,6 +375,8 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 "accessibilityGranted": PermissionState.current.accessibility,
                 "eventPostingGranted": PermissionState.current.eventPosting,
                 "closingWindowKeepsAppRunning": !self.applicationShouldTerminateAfterLastWindowClosed(NSApp),
+                "waitingInputCanBeStopped": self.menuBar?.requestedInputCanBeStopped == true
+                    && self.settings?.canStop == true,
                 "ambiguousViews": ambiguous, "clippedViews": clipped,
                 "appIconPresent": Bundle.main.url(forResource: "ZenTouch", withExtension: "icns") != nil,
                 "menuIconPresent": Bundle.main.url(forResource: "MenuBarTemplate", withExtension: "png") != nil,

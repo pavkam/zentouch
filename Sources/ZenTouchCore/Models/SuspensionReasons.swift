@@ -7,4 +7,5 @@ public struct SuspensionReasons: OptionSet, Sendable {
     public init(rawValue: Int) { self.rawValue = rawValue }
     public static let sleep = SuspensionReasons(rawValue: 1 << 0)
     public static let inactiveSession = SuspensionReasons(rawValue: 1 << 1)
+    public static let displaySleep = SuspensionReasons(rawValue: 1 << 2)
 }

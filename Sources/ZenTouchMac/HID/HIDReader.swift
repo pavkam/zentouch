@@ -15,7 +15,6 @@ public final class HIDReader: TouchReading {
     private var originalMode: [UInt8]?
     private var buffer: UnsafeMutablePointer<UInt8>?
     private var decoder = EXC3200Decoder()
-    private var scheduled = false
     private var opened = false
     private var reportCount = 0
     private var frameCount = 0
@@ -28,14 +27,32 @@ public final class HIDReader: TouchReading {
     public var onDisconnect: (() -> Void)?
     public var onError: ((String) -> Void)?
     public var statistics: ReportStatistics { ReportStatistics(reports: reportCount, frames: frameCount) }
+    public var isConnected: Bool { device.map { devices().contains($0) } ?? false }
 
     public init() {
+        precondition(Thread.isMainThread)
         IOHIDManagerSetDeviceMatching(
             manager,
             [
                 kIOHIDVendorIDKey: DeviceProfile.vendorID,
                 kIOHIDProductIDKey: DeviceProfile.productID,
             ] as CFDictionary)
+        // Discovery must stay scheduled while stopped/waiting. Otherwise the
+        // manager's device snapshot never learns about a USB power-cycle.
+        IOHIDManagerRegisterDeviceMatchingCallback(
+            manager,
+            { _, result, _, added in
+                diagnostics.record("hid.added", ["result": hidStatus(result), "device": deviceDetails(added)])
+            }, nil)
+        IOHIDManagerRegisterDeviceRemovalCallback(
+            manager,
+            { context, _, _, removed in
+                guard let context else { return }
+                let reader = Unmanaged<HIDReader>.fromOpaque(context).takeUnretainedValue()
+                diagnostics.record("hid.removed", ["device": deviceDetails(removed)])
+                if reader.device == removed { reader.onDisconnect?() }
+            }, Unmanaged.passUnretained(self).toOpaque())
+        IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
     }
 
     public func devices() -> [IOHIDDevice] {
@@ -163,16 +180,6 @@ public final class HIDReader: TouchReading {
                         reader.onError?("Invalid touch report: \(error)")
                     }
                 }, Unmanaged.passUnretained(self).toOpaque())
-            IOHIDManagerRegisterDeviceRemovalCallback(
-                manager,
-                { context, _, _, removed in
-                    guard let context else { return }
-                    let reader = Unmanaged<HIDReader>.fromOpaque(context).takeUnretainedValue()
-                    diagnostics.record("hid.removed", ["device": deviceDetails(removed)])
-                    if reader.device == removed { reader.onDisconnect?() }
-                }, Unmanaged.passUnretained(self).toOpaque())
-            IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
-            scheduled = true
             diagnostics.record(
                 "hid.listening", ["runLoopMode": CFRunLoopMode.commonModes.rawValue as String, "bufferSize": 64])
         } catch {
@@ -216,10 +223,6 @@ public final class HIDReader: TouchReading {
     @discardableResult public func stop() -> String? {
         var restoreError: String?
         if opened { diagnostics.record("hid.stop", ["reports": reportCount, "frames": frameCount]) }
-        if scheduled {
-            IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
-            scheduled = false
-        }
         if let device {
             if let buffer { IOHIDDeviceRegisterInputReportCallback(device, buffer, 64, nil, nil) }
             if let originalMode {
@@ -233,7 +236,6 @@ public final class HIDReader: TouchReading {
                 }
             }
         }
-        IOHIDManagerRegisterDeviceRemovalCallback(manager, nil, nil)
         if opened {
             IOHIDManagerClose(manager, 0)
             opened = false
@@ -247,5 +249,10 @@ public final class HIDReader: TouchReading {
         return restoreError
     }
 
-    deinit { stop() }
+    deinit {
+        stop()
+        IOHIDManagerUnscheduleFromRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
+        IOHIDManagerRegisterDeviceRemovalCallback(manager, nil, nil)
+        IOHIDManagerRegisterDeviceMatchingCallback(manager, nil, nil)
+    }
 }

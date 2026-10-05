@@ -51,7 +51,7 @@ The build pins its public fingerprint locally and reuses that key. Updates refus
 3. Allow **Input Monitoring** and **Accessibility** in macOS Settings. Quit and reopen ZenTouch if macOS requests it. The green checks show the grants seen by the running app.
 4. Select the ZenScreen, set display rotation to **0°**, and click **Enable Touch Input**.
 
-The menu's checked **Active** item means input is running. Click it to stop or resume input. **Quit ZenTouch** stops input and exits; closing Settings keeps it running.
+The menu's checked **Active** item means input is enabled, including while waiting for the screen to wake. Its tooltip shows whether input is running or waiting. Click it to stop or resume input. **Quit ZenTouch** stops input and exits; closing Settings keeps it running.
 
 ![One finger taps and drags; two fingers move together to scroll](docs/assets/gestures.png)
 
@@ -69,7 +69,7 @@ The menu's checked **Active** item means input is running. Click it to stop or r
 
 **Three-finger swipes** are enabled by default. Place three fingers, move them together, then lift. To disable them, stop input, uncheck **Enable three-finger swipes** in Settings, and resume. This is separate from macOS’s built-in trackpad settings; it does not implement three-finger dragging.
 
-ZenTouch remembers the selected display and whether input was enabled. Sleep or locking pauses it; wake resumes it when the display and permissions are available. USB disconnects, permission loss and display changes stop input. Check Settings and enable it again.
+ZenTouch remembers the selected display and whether input was enabled. Sleep or locking pauses it; wake resumes it when the display and permissions are available. Monitor power saving, USB disconnects, permission loss and display changes pause input. ZenTouch keeps watching for the controller and automatically reopens it when the selected screen and grants return. Failed reopen attempts back off to at most one every 15 seconds. Explicit Stop keeps input off.
 
 ## If something doesn't work
 
@@ -83,14 +83,14 @@ ZenTouch remembers the selected display and whether input was enabled. Sleep or 
 
 ## Scope
 
-ZenTouch translates touch reports into public macOS mouse and scroll events. It does not currently provide complete Apple trackpad behavior or produce native AppKit direct-touch events. Three-finger swipes send native, phased Dock gestures through an isolated private adapter, including the raw HID payload required on macOS 27. This behavior can change with macOS updates. Pinch also uses undocumented fields. Three-finger swipes still need live confirmation; automated checks verify recognition, cancellation and event encoding. Six-to-ten-contact continuation is covered synthetically and still needs live verification.
+ZenTouch translates touch reports into public macOS mouse and scroll events. It does not currently provide complete Apple trackpad behavior or produce native AppKit direct-touch events. Horizontal three-finger swipes send phased Dock gestures through an isolated private adapter, including the raw HID payload required on macOS 27. Vertical swipes invoke the Dock’s native Mission Control/App Exposé command once on lift; they do not animate in step with your fingers. This behavior can change with macOS updates. Pinch also uses undocumented fields. Three-finger swipes still need live confirmation; automated checks verify recognition, cancellation and event encoding. Six-to-ten-contact continuation is covered synthetically and still needs live verification.
 
 This is an independent project, unaffiliated with ASUS or Apple.
 
 ## Development
 
 ```sh
-make check      # Formatting, license/repository checks, builds and 44 behavior checks
+make check      # Formatting, license/repository checks, builds and 51 behavior checks
 make format     # Apply Swift formatting
 make artwork    # Regenerate committed README/icon graphics
 make build      # Build and verify the signed app and diagnostic helper

@@ -15,6 +15,8 @@ public final class EventSink: EventPosting {
     private let bounds: CGRect
     private let postEvent: (CGEvent) -> Void
     private let postGesture: (CGEvent) -> Void
+    private let performSystemGesture: (SystemGestureAction) throws -> Void
+    private var verticalSwipe = VerticalSwipeCommit()
     private let now: () -> TimeInterval
     private let clickInterval: TimeInterval
     private var lastClick: (time: TimeInterval, point: Point)?
@@ -24,7 +26,8 @@ public final class EventSink: EventPosting {
         now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         clickInterval: TimeInterval? = nil,
         postEvent: @escaping (CGEvent) -> Void = { $0.post(tap: .cghidEventTap) },
-        postGesture: @escaping (CGEvent) -> Void = { $0.post(tap: .cgSessionEventTap) }
+        postGesture: @escaping (CGEvent) -> Void = { $0.post(tap: .cgSessionEventTap) },
+        performSystemGesture: @escaping (SystemGestureAction) throws -> Void = DockActions.perform
     ) {
         self.target = target
         self.experimentalPinch = experimentalPinch
@@ -33,6 +36,7 @@ public final class EventSink: EventPosting {
         self.clickInterval = clickInterval ?? NSEvent.doubleClickInterval
         self.postEvent = postEvent
         self.postGesture = postGesture
+        self.performSystemGesture = performSystemGesture
     }
 
     public func emit(_ action: InputAction) {
@@ -74,6 +78,28 @@ public final class EventSink: EventPosting {
             event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: fixedDelta(dx))
             post(event)
         case .swipe(let p, let axis, let progress, let velocity, let phase):
+            if phase == .began { lastClick = nil }
+            if axis == .vertical {
+                if let action = verticalSwipe.process(progress: progress, phase: phase) {
+                    do {
+                        try performSystemGesture(action)
+                        diagnostics.record(
+                            "input.systemGesture.post",
+                            [
+                                "action": action.rawValue,
+                                "progress": progress, "backend": "dockNotification",
+                            ])
+                    } catch {
+                        diagnostics.record(
+                            "input.systemGesture.error",
+                            [
+                                "action": action.rawValue,
+                                "error": String(describing: error),
+                            ])
+                    }
+                }
+                return
+            }
             do {
                 let events = try DockSwipeEvents.make(
                     location: global(p), axis: axis,

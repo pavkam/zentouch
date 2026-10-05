@@ -31,7 +31,7 @@ SOFTWARE.
 
 ## Native Dock swipes
 
-`Sources/ZenTouchMac/Input/DockSwipeEvents.swift` adapts the packed macOS 27 IOHID payload from [iss](https://github.com/joshuarli/iss) and the phased Dock event field mapping from [macos-trackpad-companion](https://github.com/scottlamb/macos-trackpad-companion). Their private ABI is isolated from the gesture recognizer.
+`Sources/ZenTouchMac/Input/DockSwipeEvents.swift` adapts the packed macOS 27 IOHID payload from [iss](https://github.com/joshuarli/iss) and the phased Dock event field mapping from [macos-trackpad-companion](https://github.com/scottlamb/macos-trackpad-companion). `DockActions.swift` also adapts its native vertical Dock notification names and runtime symbol lookup. Their private ABI is isolated from the gesture recognizer.
 
 ### iss — ISC License
 

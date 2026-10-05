@@ -6,6 +6,7 @@ import ZenTouchMac
 
 final class MenuBarController: NSObject, NSMenuDelegate {
     var isVisible: Bool { item.isVisible }
+    var requestedInputCanBeStopped: Bool { toggle.state == .on && toggle.isEnabled }
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let toggle = NSMenuItem(title: "Active", action: nil, keyEquivalent: "")
     private let test = NSMenuItem(title: "Test Finger Contacts…", action: nil, keyEquivalent: "")
@@ -63,17 +64,20 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         item.target = self
         return item
     }
-    func update(state: SessionState, permissions: PermissionState, targetAvailable: Bool, controllerAvailable: Bool) {
+    func update(
+        state: SessionState, permissions: PermissionState, targetAvailable: Bool, controllerAvailable: Bool,
+        inputRequested: Bool
+    ) {
         let label: String
         switch state {
-        case .stopped: label = "Stopped"
+        case .stopped: label = inputRequested ? "Waiting to Resume Touch Input" : "Stopped"
         case .running(.contacts): label = "Testing Contacts"
         case .running(.input): label = "Touch Input Active"
         }
         item.button?.toolTip = "ZenTouch — \(label)"
-        toggle.state = state == .running(.input) ? .on : .off
+        toggle.state = inputRequested ? .on : .off
         toggle.isEnabled =
-            state == .running(.input) || (permissions.canBridge && targetAvailable && controllerAvailable)
+            inputRequested || (permissions.canBridge && targetAvailable && controllerAvailable)
         test.state = state == .running(.contacts) ? .on : .off
         test.isEnabled =
             state == .running(.contacts) || (!state.isRunning && permissions.inputMonitoring && controllerAvailable)

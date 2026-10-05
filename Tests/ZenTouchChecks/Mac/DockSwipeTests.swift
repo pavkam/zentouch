@@ -84,10 +84,45 @@ func swipePostsPairedSessionEventsAtMappedDisplayLocation() throws {
         target: ScreenTarget(id: 1, name: "Test"),
         geometry: DisplayGeometry(bounds: CGRect(x: -1000, y: 200, width: 1000, height: 800), rotation: 0),
         experimentalPinch: false, postEvent: { mouseEvents.append($0) }, postGesture: { gestures.append($0) })
-    sink.emit(.swipe(Point(x: 200, y: 300), axis: .vertical, progress: -0.5, velocity: 0, phase: .changed))
+    sink.emit(.swipe(Point(x: 200, y: 300), axis: .horizontal, progress: -0.5, velocity: 0, phase: .changed))
     try expect(mouseEvents.isEmpty && gestures.count == 2)
     try expect(gestures[0].location == CGPoint(x: -800, y: 500))
-    try expect(gestures[0].getDoubleValueField(field(124)) == 0.5)  // Up opens Mission Control.
+    try expect(gestures[0].getDoubleValueField(field(124)) == 0.5)  // Finger coordinates are negated on the wire.
     try expect(gestures[0].getIntegerValueField(field(55)) == 30)
     try expect(gestures[1].getIntegerValueField(field(55)) == 29)
+}
+
+func verticalSwipeCommitsNativeDockActionsOnceOnLift() throws {
+    var events: [CGEvent] = []
+    var actions: [SystemGestureAction] = []
+    let sink = EventSink(
+        target: ScreenTarget(id: 1, name: "Test"),
+        geometry: DisplayGeometry(bounds: CGRect(x: 0, y: 0, width: 1000, height: 1000), rotation: 0),
+        experimentalPinch: false, postEvent: { events.append($0) }, postGesture: { events.append($0) },
+        performSystemGesture: { actions.append($0) })
+    for (progress, action) in [(-0.5, SystemGestureAction.missionControl), (0.5, .appExpose)] {
+        sink.emit(.swipe(Point(x: 0, y: 0), axis: .vertical, progress: 0, velocity: 0, phase: .began))
+        sink.emit(.swipe(Point(x: 0, y: 0), axis: .vertical, progress: progress, velocity: 0, phase: .changed))
+        let beforeLift = actions.count
+        sink.emit(.swipe(Point(x: 0, y: 0), axis: .vertical, progress: progress, velocity: 0, phase: .ended))
+        sink.emit(.swipe(Point(x: 0, y: 0), axis: .vertical, progress: progress, velocity: 0, phase: .ended))
+        try expect(actions.count == beforeLift + 1 && actions.last == action)
+    }
+    try expect(events.isEmpty)  // No competing partial DockControl transitions.
+    try expect(DockActions.isAvailable)  // Resolves the ABI without invoking it in tests.
+}
+
+func verticalSwipeAbortShortTravelAndInvalidInputDoNotToggleDock() throws {
+    for (first, last, phase) in [
+        (-0.1, -0.1, GesturePhase.ended), (-0.5, -0.5, .cancelled),
+        (-0.5, -0.3, .ended), (-0.5, Double.nan, .ended),
+    ] {
+        var commit = VerticalSwipeCommit()
+        try expect(commit.process(progress: 0, phase: .began) == nil)
+        try expect(commit.process(progress: first, phase: .changed) == nil)
+        try expect(commit.process(progress: last, phase: phase) == nil)
+        try expect(commit.process(progress: -1, phase: .ended) == nil)
+    }
+    var commit = VerticalSwipeCommit()
+    try expect(commit.process(progress: -1, phase: .ended) == nil)
 }

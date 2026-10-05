@@ -36,7 +36,7 @@ The first route is `IOHIDManager → report decoder → complete contact frames 
 
 [Touch-Up implements this approach for touchscreens](https://github.com/shueber/Touch-Up). Its pinch emitter uses private gesture fields. [macos-trackpad-companion](https://github.com/scottlamb/macos-trackpad-companion) demonstrates a more elaborate gesture event serializer and animated Dock swipes, while explicitly describing its implementation as a prototype. These are useful primary-source implementations, not a supported Apple contract.
 
-The local implementation uses public mouse/scroll posting and isolates experimental pinch and native three-finger Dock swipe adapters. The Dock path sends phased gestures, rather than keyboard shortcuts. Its macOS 27 serialized raw IOHID payload follows [iss](https://github.com/joshuarli/iss); the recognizer and encoding are covered by automated checks, while live OS behavior remains pending confirmation.
+The local implementation uses public mouse/scroll posting and isolates experimental pinch and native three-finger Dock swipe adapters. The horizontal Dock path sends phased gestures; vertical swipes invoke the Dock’s native Mission Control/App Exposé commands on lift. Its macOS 27 serialized raw IOHID payload follows [iss](https://github.com/joshuarli/iss); the recognizer and encoding are covered by automated checks, while live confirmation of the updated command path remains pending.
 
 ## Virtual trackpad
 

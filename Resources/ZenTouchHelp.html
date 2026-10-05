@@ -29,13 +29,13 @@ li { margin: 8px 0; } code { font-size: 14px; }
 <li>Tap with one finger to click. Move one finger to drag.</li>
 <li>Move two fingers together to scroll. Tap with two fingers to right-click.</li>
 <li>Hold one finger still, then lift it, for a right-click.</li>
-<li>Move three fingers together: left/right switches desktops, up opens Mission Control, down opens App Exposé. Lift to finish.</li>
+<li>Move three fingers together: left/right switches desktops, up opens Mission Control, down opens App Exposé. Lift to finish. Vertical actions activate on lift.</li>
 <li>Three-finger swipes are enabled by default and use a private macOS adapter. Stop input to change their checkbox in Settings. They do not provide three-finger dragging.</li>
 <li>Experimental pinch is optional; compatibility varies between apps.</li>
 </ul>
 <h2>The menu bar</h2>
-<p>Closing Settings leaves touch input running. The checked <strong>Active</strong> menu item means touch input is running. Click it to stop or resume input. <strong>Quit ZenTouch</strong> stops input, requests the controller's previous mode, and exits.</p>
-<p>ZenTouch remembers the chosen display and whether input was enabled. Sleep or locking pauses input; waking resumes it if the display and permissions are still available. After a USB disconnect or a display configuration change, check Settings and enable input again.</p>
+<p>Closing Settings leaves touch input running. The checked <strong>Active</strong> menu item means touch input is enabled, including while waiting for the controller. The icon’s tooltip shows its current status. Click it to stop or resume input. <strong>Quit ZenTouch</strong> stops input, requests the controller's previous mode, and exits.</p>
+<p>ZenTouch remembers the chosen display and whether input was enabled. Sleep or locking pauses input; waking resumes it if the display and permissions are still available. Monitor power saving, USB disconnects and display changes pause input. ZenTouch automatically reopens the controller when the selected screen and permissions return; Stop keeps input off.</p>
 <h2>Test and troubleshoot</h2>
 <p><strong>Test Finger Contacts</strong> previews contacts without clicking or scrolling. Report and frame counts help identify a missing USB connection or a decoding problem. Stop the test before enabling input.</p>
 <p><strong>Open Logs Folder</strong> opens <code>~/Library/Logs/ZenTouch</code>. Logs contain touch-controller reports and translated actions. Rotation retains the current file and two 8 MiB archives. The Mac's other input devices are not recorded.</p>

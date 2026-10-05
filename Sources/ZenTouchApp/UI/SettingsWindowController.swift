@@ -6,6 +6,7 @@ import ZenTouchCore
 import ZenTouchMac
 
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
+    var canStop: Bool { stop.isEnabled }
     private let inputLabel = NSTextField(labelWithString: "")
     private let accessibilityLabel = NSTextField(labelWithString: "")
     private let inputButton = NSButton(title: "Allow Input Monitoring", target: nil, action: nil)
@@ -149,7 +150,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
     func update(
         state: SessionState, permissions: PermissionState, targets: [ScreenTarget], selected: ScreenTarget?,
-        controllerAvailable: Bool, experimentalPinch: Bool, threeFingerSwipes: Bool, message: String
+        controllerAvailable: Bool, experimentalPinch: Bool, threeFingerSwipes: Bool, inputRequested: Bool,
+        message: String
     ) {
         inputLabel.stringValue =
             permissions.inputMonitoring ? "✓ Input Monitoring granted" : "○ Input Monitoring required"
@@ -181,7 +183,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         swipes.state = threeFingerSwipes ? .on : .off
         enable.isEnabled = !state.isRunning && permissions.canBridge && selected != nil && controllerAvailable
         test.isEnabled = !state.isRunning && permissions.inputMonitoring && controllerAvailable
-        stop.isEnabled = state.isRunning
+        stop.isEnabled = state.isRunning || inputRequested
         status.stringValue = message
     }
     func updatePreview(frame: TouchFrame, statistics: ReportStatistics) {
