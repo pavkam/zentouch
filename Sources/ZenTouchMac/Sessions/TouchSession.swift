@@ -59,7 +59,10 @@ public final class TouchSession {
         self.makeSink = makeSink ?? { EventSink(target: $0, geometry: $1, experimentalPinch: $2) }
     }
 
-    public func start(kind: SessionKind, target: ScreenTarget?, pinch: Bool = false, multitouch: Bool = true) throws {
+    public func start(
+        kind: SessionKind, target: ScreenTarget?, pinch: Bool = false, multitouch: Bool = true,
+        swipes: Bool = true
+    ) throws {
         precondition(Thread.isMainThread)
         guard !state.isRunning else {
             throw ZenError(message: "Touch input is already running. Stop it before starting another session.")
@@ -71,7 +74,7 @@ public final class TouchSession {
         diagnostics.record(
             "session.start",
             [
-                "kind": kind.rawValue, "pinch": pinch, "multitouch": multitouch,
+                "kind": kind.rawValue, "pinch": pinch, "multitouch": multitouch, "swipes": swipes,
                 "target": target?.name ?? "none", "displayID": target?.id ?? 0,
             ])
         if kind == .input {
@@ -87,7 +90,9 @@ public final class TouchSession {
             self.target = target
             initialGeometry = geometry
             sink = makeSink(target, geometry, pinch)
-            engine = GestureEngine(width: geometry.bounds.width, height: geometry.bounds.height, pinchEnabled: pinch)
+            engine = GestureEngine(
+                width: geometry.bounds.width, height: geometry.bounds.height,
+                pinchEnabled: pinch, swipesEnabled: swipes)
         }
         reader.onMultitouchObserved = { [weak self] in
             self?.onStatus?(

@@ -97,6 +97,14 @@ Run this with ZenTouch stopped. It opens Settings, writes a report and quits wit
 
 Plain capture leaves the mode unchanged. Multi-touch capture writes feature report 5 and restores the read mode on stop. This controller returns mode 0 even while reporting multiple contacts, so actual input packets confirm multi-touch. When launched from a terminal, macOS can attribute grants to the terminal; use the signed GUI for normal operation.
 
+## Three-finger swipes
+
+`ThreeFingerSwipe` recognizes three contacts moving together, locks the dominant axis after 24 pixels, and maps 240 pixels to one unit of cumulative swipe progress. Right/down are positive in the recognizer; the Dock adapter negates both axes. A first lift finishes the gesture. A fourth finger, contact replacement, lost report, Stop, timeout or environment failure cancels it and suppresses residual contacts until all fingers lift. Three-finger taps have no action. Staged placement promotes an uncommitted one/two-finger tap within 250 ms; an active drag, scroll or pinch never becomes navigation.
+
+`DockSwipeEvents` is the only component that knows the private native Dock ABI. It posts paired DockControl/Gesture events to the session tap, with began/changed/ended/cancelled phases, cumulative progress and bounded lift velocity. macOS 27 additionally requires the packed IOHID fluid-gesture payload in serialized field 4205. Explicit little-endian records avoid Swift struct padding; the outer field header is big-endian. Unknown CGEvent serialization versions fail closed and log `input.swipe.error`.
+
+The checkbox is enabled by default and saved separately from macOS trackpad preferences. Stop input before changing it. Automated checks use injected posters and never trigger Mission Control or switch desktops. The normal app logs `input.swipe.post` and `app.activeSpace.changed`; the latter can corroborate a horizontal desktop transition but does not identify which input device caused it. Three-finger native behavior still needs live confirmation.
+
 Developer launch options **--enable-input**, **--test-touch** and **--show-settings** start input, show a contact test, or open Settings explicitly.
 
 See [the platform investigation](feasibility.md) and [the quality pass](quality-pass.md) for verified behavior and remaining limits.

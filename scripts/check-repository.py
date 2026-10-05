@@ -25,7 +25,8 @@ for file in files:
         sidecar = pathlib.Path(str(file) + '.license')
         assert sidecar.is_file(), f'Missing license sidecar: {file.relative_to(root)}'
         content = sidecar.read_text()
-    assert 'SPDX-License-Identifier: MIT' in content[:600], f'Missing SPDX header: {file.relative_to(root)}'
+    identifiers = re.findall(r'SPDX-License-Identifier: ([^\r\n]+)', content[:600])
+    assert len(identifiers) == 1 and identifiers[0] in ('MIT', 'MIT AND ISC'), f'Invalid SPDX header: {file.relative_to(root)}'
     if file.suffix == '.py':
         ast.parse(content, filename=str(file))
     if file.suffix == '.sh':

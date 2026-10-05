@@ -178,3 +178,42 @@ func disconnectKeepsRestoreFailureVisible() throws {
     f.reader.onDisconnect?()
     try expect(f.session.state == .stopped && status == "Mode restoration failed")
 }
+
+func sessionFailuresCancelNativeSwipeExactlyOnce() throws {
+    for reason in 0..<3 {
+        let f = Fixture()
+        try f.start()
+        let touches = (1...3).map { Touch(id: $0, x: Double($0) * 0.1, y: 0.5) }
+        f.reader.send(touches)
+        f.now = 0.1
+        f.reader.send(touches.map { Touch(id: $0.id, x: $0.x + 0.1, y: $0.y) })
+        if reason == 0 {
+            f.session.stop()
+        } else if reason == 1 {
+            f.permissions = PermissionState(inputMonitoring: true, accessibility: false, eventPosting: false)
+            f.session.poll()
+        } else {
+            f.reader.onError?("Lost report during swipe")
+        }
+        f.reader.send(touches)
+        f.reader.send([])
+        f.session.stop()
+        let cancellations = f.sink.actions.filter {
+            if case .swipe(_, _, _, 0, .cancelled) = $0 { return true }
+            return false
+        }
+        try expect(cancellations.count == 1)
+        try expect(
+            !f.sink.actions.contains {
+                if case .click = $0 { return true }
+                return false
+            })
+    }
+    let disabled = Fixture()
+    try disabled.session.start(kind: .input, target: disabled.target, swipes: false)
+    disabled.reader.send((1...3).map { Touch(id: $0, x: Double($0) * 0.1, y: 0.5) })
+    disabled.now = 0.1
+    disabled.reader.send((1...3).map { Touch(id: $0, x: Double($0) * 0.1 + 0.2, y: 0.5) })
+    disabled.reader.send([])
+    try expect(disabled.sink.actions.isEmpty)
+}

@@ -17,7 +17,7 @@ struct ZenTouchCLI {
             "process.start",
             [
                 "mode": args.first ?? "help",
-                "bundle": Bundle.main.bundleIdentifier ?? "cli", "version": "0.3.0", "log": diagnostics.fileURL.path,
+                "bundle": Bundle.main.bundleIdentifier ?? "cli", "version": "0.4.0", "log": diagnostics.fileURL.path,
             ])
         diagnostics.record(
             "process.permissions",
@@ -42,7 +42,7 @@ struct ZenTouchCLI {
             print("ZenTouch CLI: controller profile verified (559 bytes)")
         case "--version":
             guard args.count == 1 else { throw ZenError(message: "--version takes no options.") }
-            print("ZenTouch CLI 0.3.0")
+            print("ZenTouch CLI 0.4.0")
         case "help", "--help", "-h":
             printUsage()
         case "inspect":

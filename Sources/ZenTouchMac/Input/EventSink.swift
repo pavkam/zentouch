@@ -14,6 +14,7 @@ public final class EventSink: EventPosting {
     let experimentalPinch: Bool
     private let bounds: CGRect
     private let postEvent: (CGEvent) -> Void
+    private let postGesture: (CGEvent) -> Void
     private let now: () -> TimeInterval
     private let clickInterval: TimeInterval
     private var lastClick: (time: TimeInterval, point: Point)?
@@ -22,7 +23,8 @@ public final class EventSink: EventPosting {
         target: ScreenTarget, geometry: DisplayGeometry, experimentalPinch: Bool,
         now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         clickInterval: TimeInterval? = nil,
-        postEvent: @escaping (CGEvent) -> Void = { $0.post(tap: .cghidEventTap) }
+        postEvent: @escaping (CGEvent) -> Void = { $0.post(tap: .cghidEventTap) },
+        postGesture: @escaping (CGEvent) -> Void = { $0.post(tap: .cgSessionEventTap) }
     ) {
         self.target = target
         self.experimentalPinch = experimentalPinch
@@ -30,6 +32,7 @@ public final class EventSink: EventPosting {
         self.now = now
         self.clickInterval = clickInterval ?? NSEvent.doubleClickInterval
         self.postEvent = postEvent
+        self.postGesture = postGesture
     }
 
     public func emit(_ action: InputAction) {
@@ -70,6 +73,22 @@ public final class EventSink: EventPosting {
             event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: fixedDelta(dy))
             event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: fixedDelta(dx))
             post(event)
+        case .swipe(let p, let axis, let progress, let velocity, let phase):
+            do {
+                let events = try DockSwipeEvents.make(
+                    location: global(p), axis: axis,
+                    progress: progress, velocity: velocity, phase: phase)
+                for event in events { postGesture(event) }
+                diagnostics.record(
+                    "input.swipe.post",
+                    [
+                        "axis": axis.rawValue,
+                        "phase": phase.rawValue, "progress": progress, "velocity": velocity,
+                        "rawHID": ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27,
+                    ])
+            } catch {
+                diagnostics.record("input.swipe.error", ["error": String(describing: error)])
+            }
         case .magnify(let p, let delta, let phase):
             guard experimentalPinch,
                 let event = CGEvent(

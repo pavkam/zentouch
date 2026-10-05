@@ -5,6 +5,15 @@ SPDX-License-Identifier: MIT
 
 # Changelog
 
+## 0.4.0 — unreleased
+
+- Add three-finger desktop, Mission Control and App Exposé swipes using native phased Dock events.
+- Include the raw IOHID payload required by macOS 27, isolated from public mouse/scroll posting.
+- Recognize sequential finger placement and suppress residual contacts after lift or cancellation.
+- Add a saved Settings toggle, per-phase swipe logs and active Space change diagnostics.
+- Add recognition, cancellation, event encoding and session failure tests (44 checks total).
+- Live native swipe confirmation remains pending.
+
 ## 0.3.0 — 2026-10-05
 
 - Replace separate menu status and stop/enable entries with one checked **Active** toggle.

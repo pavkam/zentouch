@@ -11,8 +11,8 @@ SPDX-License-Identifier: MIT
   <key>CFBundleIdentifier</key><string>org.pavkam.zentouch</string>
   <key>CFBundleExecutable</key><string>ZenTouch</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.3.0</string>
-  <key>CFBundleVersion</key><string>3</string>
+  <key>CFBundleShortVersionString</key><string>0.4.0</string>
+  <key>CFBundleVersion</key><string>4</string>
   <key>CFBundleIconFile</key><string>ZenTouch.icns</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>

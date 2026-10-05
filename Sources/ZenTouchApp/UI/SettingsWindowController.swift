@@ -12,6 +12,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let accessibilityButton = NSButton(title: "Allow Accessibility", target: nil, action: nil)
     private let displays = NSPopUpButton()
     private let pinch = NSButton(checkboxWithTitle: "Enable experimental pinch", target: nil, action: nil)
+    private let swipes = NSButton(checkboxWithTitle: "Enable three-finger swipes", target: nil, action: nil)
     private let enable = NSButton(title: "Enable Touch Input", target: nil, action: nil)
     private let test = NSButton(title: "Test Finger Contacts", target: nil, action: nil)
     private let stop = NSButton(title: "Stop", target: nil, action: nil)
@@ -26,16 +27,17 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     var onAccessibilitySettings: (() -> Void)?
     var onSelectDisplay: ((ScreenTarget?) -> Void)?
     var onPinchChange: ((Bool) -> Void)?
+    var onSwipesChange: ((Bool) -> Void)?
     var onLogs: (() -> Void)?
 
     init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 580, height: 740),
+            contentRect: NSRect(x: 0, y: 0, width: 580, height: 800),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false)
         window.title = "ZenTouch Settings"
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 560, height: 740)
+        window.minSize = NSSize(width: 560, height: 800)
         window.setFrameAutosaveName("ZenTouchSettingsWindow")
         super.init(window: window)
         window.delegate = self
@@ -83,6 +85,15 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         displays.action = #selector(selectDisplay)
         displays.setAccessibilityLabel("Display receiving ZenScreen touch input")
         add(displays)
+        swipes.target = self
+        swipes.action = #selector(changeSwipes)
+        add(swipes)
+        let swipeNote = NSTextField(
+            wrappingLabelWithString:
+                "Left/right: desktops. Up: Mission Control. Down: App Exposé. Uses a private macOS gesture adapter.")
+        swipeNote.font = .systemFont(ofSize: 11)
+        swipeNote.textColor = .secondaryLabelColor
+        add(swipeNote)
         pinch.target = self
         pinch.action = #selector(changePinch)
         add(pinch)
@@ -138,7 +149,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
     func update(
         state: SessionState, permissions: PermissionState, targets: [ScreenTarget], selected: ScreenTarget?,
-        controllerAvailable: Bool, experimentalPinch: Bool, message: String
+        controllerAvailable: Bool, experimentalPinch: Bool, threeFingerSwipes: Bool, message: String
     ) {
         inputLabel.stringValue =
             permissions.inputMonitoring ? "✓ Input Monitoring granted" : "○ Input Monitoring required"
@@ -166,6 +177,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         displays.isEnabled = !state.isRunning
         pinch.isEnabled = !state.isRunning
         pinch.state = experimentalPinch ? .on : .off
+        swipes.isEnabled = !state.isRunning
+        swipes.state = threeFingerSwipes ? .on : .off
         enable.isEnabled = !state.isRunning && permissions.canBridge && selected != nil && controllerAvailable
         test.isEnabled = !state.isRunning && permissions.inputMonitoring && controllerAvailable
         stop.isEnabled = state.isRunning
@@ -188,5 +201,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         onSelectDisplay?(targets.indices.contains(index) ? targets[index] : nil)
     }
     @objc private func changePinch() { onPinchChange?(pinch.state == .on) }
+    @objc private func changeSwipes() { onSwipesChange?(swipes.state == .on) }
     @objc private func showLogs() { onLogs?() }
 }

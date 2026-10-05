@@ -20,6 +20,11 @@ public enum GesturePhase: Int64, Equatable, Sendable {
     case cancelled = 8
 }
 
+public enum SwipeAxis: Int64, Equatable, Sendable {
+    case horizontal = 1
+    case vertical = 2
+}
+
 public enum InputAction: Equatable, Sendable {
     case move(Point)
     case down(Point)
@@ -28,12 +33,14 @@ public enum InputAction: Equatable, Sendable {
     case click(Point, right: Bool)
     case scroll(Point, dx: Double, dy: Double, phase: GesturePhase)
     case magnify(Point, delta: Double, phase: GesturePhase)
+    /// Progress and velocity are in screen-finger coordinates: right/down positive.
+    case swipe(Point, axis: SwipeAxis, progress: Double, velocity: Double, phase: GesturePhase)
 }
 
 /// Direct touch: one finger clicks/drags; two fingers scroll/pinch/right-click.
 /// Once a multi-finger interaction ends, remaining fingers cannot become clicks.
 public struct GestureEngine {
-    private enum Mode { case idle, single, pair, scroll, pinch, suppress }
+    private enum Mode { case idle, single, pair, triple, scroll, pinch, suppress }
     private var mode = Mode.idle
     private var ids: [Int] = []
     private var start = Point(x: 0, y: 0)
@@ -43,15 +50,18 @@ public struct GestureEngine {
     private var beganAt = 0.0
     private var dragging = false
     private var pairTap = true
+    private var swipe: ThreeFingerSwipe?
     private let width: Double
     private let height: Double
     public let pinchEnabled: Bool
+    public let swipesEnabled: Bool
     public var hasActiveGesture: Bool { mode != .idle && mode != .suppress }
 
-    public init(width: Double, height: Double, pinchEnabled: Bool = false) {
+    public init(width: Double, height: Double, pinchEnabled: Bool = false, swipesEnabled: Bool = true) {
         self.width = width
         self.height = height
         self.pinchEnabled = pinchEnabled
+        self.swipesEnabled = swipesEnabled
     }
 
     public mutating func cancel() -> [InputAction] {
@@ -59,6 +69,8 @@ public struct GestureEngine {
         if dragging { actions.append(.up(last)) }
         if mode == .scroll { actions.append(.scroll(start, dx: 0, dy: 0, phase: .cancelled)) }
         if mode == .pinch { actions.append(.magnify(start, delta: 0, phase: .cancelled)) }
+        if mode == .triple { actions += swipe?.finish(cancelled: true, time: 0) ?? [] }
+        swipe = nil
         mode = .idle
         ids = []
         dragging = false
@@ -97,20 +109,23 @@ public struct GestureEngine {
                 actions.append(.scroll(start, dx: 0, dy: 0, phase: .ended))
             } else if mode == .pinch {
                 actions.append(.magnify(start, delta: 0, phase: .ended))
+            } else if mode == .triple {
+                actions += swipe?.finish(cancelled: false, time: time) ?? []
             }
+            swipe = nil
             mode = .idle
             ids = []
             dragging = false
             return actions
         }
         if mode == .suppress { return [] }
-        if sorted.count > 2 {
+        if sorted.count > 3 || (sorted.count == 3 && !swipesEnabled) {
             actions += cancel()
             mode = .suppress
             return actions
         }
         if mode == .idle {
-            mode = sorted.count == 1 ? .single : .pair
+            mode = sorted.count == 1 ? .single : sorted.count == 2 ? .pair : .triple
             pairTap = true
             ids = newIDs
             beganAt = time
@@ -120,9 +135,30 @@ public struct GestureEngine {
                 startDistance = points[0].distance(to: points[1])
                 lastDistance = startDistance
             }
+            if mode == .triple { swipe = ThreeFingerSwipe(points: points, time: time) }
             return [.move(start)]
         }
         if newIDs != ids {
+            // First lift ends a swipe; residual fingers cannot click or scroll.
+            if mode == .triple, newIDs.count < ids.count, newIDs.allSatisfy(ids.contains) {
+                actions += swipe?.finish(cancelled: false, time: time) ?? []
+                swipe = nil
+                mode = .suppress
+                return actions
+            }
+            // Fingers rarely arrive in the same HID frame. Only promote an
+            // uncommitted tap; never convert a drag, scroll or pinch into navigation.
+            if sorted.count == 3, swipesEnabled, time - beganAt <= 0.25,
+                mode == .single && !dragging || mode == .pair && pairTap,
+                ids.allSatisfy(newIDs.contains)
+            {
+                mode = .triple
+                ids = newIDs
+                start = centroid(points)
+                last = start
+                swipe = ThreeFingerSwipe(points: points, time: time)
+                return [.move(start)]
+            }
             if mode == .pair, sorted.count == 1, ids.contains(newIDs[0]), pairTap, time - beganAt <= 0.5 {
                 actions.append(.click(last, right: true))
                 mode = .suppress
@@ -145,7 +181,9 @@ public struct GestureEngine {
             return actions
         }
         let center = centroid(points)
-        if mode == .single {
+        if mode == .triple {
+            actions += swipe?.process(points: points, time: time) ?? []
+        } else if mode == .single {
             if !dragging, start.distance(to: center) >= 8 {
                 dragging = true
                 actions.append(.down(start))

@@ -114,6 +114,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 self?.updatePresentation()
             }
             view.onPinchChange = { [weak self] enabled in self?.preferences.experimentalPinch = enabled }
+            view.onSwipesChange = { [weak self] enabled in self?.preferences.threeFingerSwipes = enabled }
             settings = view
         }
         updatePresentation()
@@ -126,14 +127,16 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         diagnostics.record("app.start", ["kind": kind.rawValue])
         let target = preferences.selectedTarget(in: targets)
         do {
-            try session.start(kind: kind, target: target, pinch: preferences.experimentalPinch)
+            try session.start(
+                kind: kind, target: target, pinch: preferences.experimentalPinch,
+                swipes: preferences.threeFingerSwipes)
             preferences.inputEnabled = kind == .input
             if let target, kind == .input { preferences.displayID = target.id }
             latestStatistics = reader.statistics
             wantsResume = false
             setMessage(
                 kind == .input
-                    ? "Touch input is active. Tap, drag, or scroll with two fingers."
+                    ? "Touch input is active. Tap or drag with one finger; scroll with two; swipe with three."
                     : "Testing finger contacts. This test sends no clicks or scrolling.")
         } catch {
             wantsResume = false
@@ -197,7 +200,8 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             controllerAvailable: controllerAvailable)
         settings?.update(
             state: session.state, permissions: permissions, targets: targets, selected: selected,
-            controllerAvailable: controllerAvailable, experimentalPinch: preferences.experimentalPinch, message: message
+            controllerAvailable: controllerAvailable, experimentalPinch: preferences.experimentalPinch,
+            threeFingerSwipes: preferences.threeFingerSwipes, message: message
         )
     }
     private func openPrivacy(input: Bool) {
@@ -232,6 +236,9 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     }
     private func observeEnvironment() {
         let workspace = NSWorkspace.shared.notificationCenter
+        observe(workspace, NSWorkspace.activeSpaceDidChangeNotification) {
+            diagnostics.record("app.activeSpace.changed")
+        }
         let pauses: [(Notification.Name, SuspensionReasons)] = [
             (NSWorkspace.willSleepNotification, .sleep),
             (NSWorkspace.sessionDidResignActiveNotification, .inactiveSession),
