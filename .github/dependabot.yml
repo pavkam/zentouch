@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Alexandru Ciobanu
+# SPDX-License-Identifier: MIT
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+    open-pull-requests-limit: 3

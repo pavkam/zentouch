@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 Alexandru Ciobanu
+# SPDX-License-Identifier: MIT
+
+name: Bug report
+description: Report a problem with input, permissions or the app.
+labels: [bug]
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened?
+      description: Include reproduction steps, expected behavior and actual behavior.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: ZenTouch and macOS versions
+      placeholder: ZenTouch 0.3.0, macOS 27, Apple Silicon
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Screen and USB controller
+      placeholder: MB16AMTR, eGalaxTouch EXC3200-2505
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Permission checks and relevant diagnostics
+      description: Describe the permission checks and contact counters. Share only the relevant log excerpt after removing private information.

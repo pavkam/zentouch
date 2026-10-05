@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+SPDX-FileCopyrightText: 2026 Alexandru Ciobanu
+SPDX-License-Identifier: MIT
+-->
+
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleName</key><string>ZenTouch</string>
+  <key>CFBundleDisplayName</key><string>ZenTouch</string>
+  <key>CFBundleIdentifier</key><string>org.pavkam.zentouch</string>
+  <key>CFBundleExecutable</key><string>ZenTouch</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>0.3.0</string>
+  <key>CFBundleVersion</key><string>3</string>
+  <key>CFBundleIconFile</key><string>ZenTouch.icns</string>
+  <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
+  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>LSUIElement</key><true/>
+  <key>LSMultipleInstancesProhibited</key><true/>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Alexandru Ciobanu. All rights reserved.</string>
+  <key>NSInputMonitoringUsageDescription</key><string>Read finger contacts from your ZenScreen touch controller.</string>
+</dict></plist>

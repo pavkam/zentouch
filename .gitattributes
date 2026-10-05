@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Alexandru Ciobanu
+# SPDX-License-Identifier: MIT
+
+* text=auto eol=lf
+*.png binary
+*.icns binary
+*.bin binary

@@ -1,0 +1,102 @@
+<!--
+SPDX-FileCopyrightText: 2026 Alexandru Ciobanu
+SPDX-License-Identifier: MIT
+-->
+
+# ZenTouch
+
+ZenTouch adds clicks, dragging, right-clicks and two-finger scrolling to the ASUS ZenScreen Touch MB16AMTR on macOS. It lives in the menu bar; closing Settings keeps input running. Clicks and two-finger scrolling have been physically verified on the attached Mac.
+
+The supported controller is **eGalaxTouch EXC3200-2505**, USB **0eef:c000**. ZenTouch checks its exact HID descriptor before changing the controller or translating contacts. Experimental pinch is opt-in; complete Apple trackpad gesture behavior remains unverified.
+
+## Install and run
+
+Apple Command Line Tools, Swift and an existing local code-signing identity are sufficient.
+
+```sh
+make check
+make install
+open ~/Applications/ZenTouch.app
+```
+
+The installer verifies the bundle, checks that an existing app has the same signing requirement, requests a clean quit, and stages the replacement before installing it at **~/Applications/ZenTouch.app**. It registers that path with LaunchServices.
+
+The build pins the signing certificate's public fingerprint in ignored **.zentouch-signing-identity**. Later builds reuse the key and fail if it is unavailable. There is no ad-hoc fallback. To choose an identity on the first build, set **ZENTOUCH_SIGNING_IDENTITY** to its name or fingerprint.
+
+1. Open **Settings…** from the ZenTouch menu bar icon.
+2. Allow **Input Monitoring** and **Accessibility** in macOS Settings. Quit and reopen if macOS requests it. Green checks show grants seen by the running app.
+3. Select the ZenScreen, keep its rotation at **0°**, and click **Enable Touch Input**.
+4. Tap to click, move one finger to drag, move two fingers together to scroll, or tap with two fingers to right-click. A stationary long touch also right-clicks on release.
+
+**Test Finger Contacts** previews contacts without posting input. The report and frame counts help diagnose missing input. Stop the test before enabling touch input.
+
+ZenTouch remembers the display, experimental pinch preference, and whether input was enabled. Sleep or locking pauses input; wake or session activation resumes it once all suspension reasons clear. USB disconnects, permission loss and display changes stop the session; check Settings and enable input again.
+
+Turning off **Active** in the menu (or **Stop** in Settings) releases active gestures and requests the previous controller mode. **Quit ZenTouch** performs the same cleanup and exits. An abrupt kill cannot run cleanup; reconnect the USB cable if the controller needs resetting.
+
+If the app is missing from Privacy & Security, use **+** to add the installed app. The initial prototype used an ad-hoc signature; migration to the stable certificate required one app-scoped TCC reset. Normal updates preserve the signing requirement and do not reset permissions.
+
+## Packaging
+
+```sh
+make package
+```
+
+This runs the checks and produces **dist/ZenTouch.app**, a compressed DMG with an Applications shortcut, a ZIP, and SHA-256 checksums. The artifact name includes the version and build architecture. This Mac builds **arm64**.
+
+The package check extracts the ZIP and mounts the DMG read-only, verifies both relocated apps, checks signatures and checksums, and tests clean failure when the helper's controller profile is missing.
+
+The bundle includes explicit ZenTouch names, version/build metadata, custom app and menu bar artwork, menu bar activation settings, bundled help, third-party notices, the hardware profile, and a separately signed **zentouch-cli** helper. The helper has a distinct filename because macOS filesystems commonly treat case-only names as the same file.
+
+These are local certificate-signed builds. They are not notarized Developer ID releases; public distribution requires the appropriate Apple signing identity and notarization.
+
+## Logs
+
+Logs live at **~/Library/Logs/ZenTouch/events.jsonl**. The current file and two archives are each limited to **8 MiB**, for **24 MiB** of retained event data. Oversized records become a bounded diagnostic entry. Files use mode **0600**, and the directory uses **0700**.
+
+The log records permission changes, controller enumeration/open/mode operations, every received controller report, decoded contacts, translated actions, posting attempts, heartbeat totals and cleanup. Each entry identifies its process and session. It does not monitor other input devices.
+
+A file lock coordinates GUI/CLI writers during rotation, while a thread lock protects each logger. Normal quit flushes writes. **Open Logs Folder** is available in the menu and Settings.
+
+## Source layout and verification
+
+| Target | Responsibility |
+| --- | --- |
+| **ZenTouchCore** | Touch models, exact HID decoder, gesture state machine, bounded JSON logger, suspension reasons |
+| **ZenTouchMac** | HID access, permissions, display geometry, event posting, injectable session lifecycle |
+| **ZenTouchApp** | Menu bar, Settings, preferences, sleep/lock handling, app entry point |
+| **ZenTouchCLI** | Explicit diagnostic commands; shipped as zentouch-cli |
+| **ZenTouchChecks** | Protocol, gesture, logging and mocked session checks, plus real packet fixtures |
+
+```sh
+make check       # Formatting, warnings-as-errors builds, checks and CLI behavior
+make format      # Apply the repository's Swift format
+make build       # Signed app and nested CLI; validate metadata/resources/signatures
+```
+
+Command Line Tools does not provide XCTest/Swift Testing in this environment, so checks use a standalone Swift executable with a nonzero failure status. No external dependencies are required. The native SwiftPM backend is selected explicitly for this Command Line Tools setup; Swift currently warns that this backend is deprecated.
+
+The tests cover real one-, two-, three-contact and lift packets; synthetic ten-contact hybrid frames; invalid reports; gesture phases and cancellation; residual-finger suppression; concurrent and multi-process log rotation; oversized/invalid log records; session permission gates; failed and duplicate startup; idempotent cleanup; permission revocation; display changes; timeouts; disconnect errors; and independent sleep/lock reasons.
+
+The packaged GUI also has a smoke check for its own menu bar state, permissions, icons, Settings layout and close-window behavior:
+
+```sh
+open ~/Applications/ZenTouch.app --args --smoke-test /tmp/zentouch-smoke.json
+```
+
+Run this with ZenTouch stopped. It opens Settings, writes a report and quits without starting a touch session.
+
+## Diagnostic commands
+
+```sh
+~/Applications/ZenTouch.app/Contents/Helpers/zentouch-cli --help
+~/Applications/ZenTouch.app/Contents/Helpers/zentouch-cli inspect
+~/Applications/ZenTouch.app/Contents/Helpers/zentouch-cli capture --multitouch --seconds 30
+~/Applications/ZenTouch.app/Contents/Helpers/zentouch-cli bridge --seconds 30
+```
+
+Plain capture leaves the mode unchanged. Multi-touch capture writes feature report 5 and restores the read mode on stop. This controller returns mode 0 even while reporting multiple contacts, so actual input packets confirm multi-touch. When launched from a terminal, macOS can attribute grants to the terminal; use the signed GUI for normal operation.
+
+Developer launch options **--enable-input**, **--test-touch** and **--show-settings** start input, show a contact test, or open Settings explicitly.
+
+See [the platform investigation](feasibility.md) and [the quality pass](quality-pass.md) for verified behavior and remaining limits.

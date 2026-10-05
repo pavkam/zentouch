@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Alexandru Ciobanu
+# SPDX-License-Identifier: MIT
+
+.build/
+.DS_Store
+captures/
+.zentouch-signing-identity
+dist/
+.swiftpm/
+__pycache__/

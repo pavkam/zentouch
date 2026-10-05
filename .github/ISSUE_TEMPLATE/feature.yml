@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 Alexandru Ciobanu
+# SPDX-License-Identifier: MIT
+
+name: Feature or hardware request
+description: Propose a feature or investigate another controller.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What should change?
+      description: Explain the use case and desired behavior. For hardware, include the model and controller details.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or constraints
+      description: Include captures or descriptor information when relevant. State what you have actually tested.

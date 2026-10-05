@@ -1,0 +1,43 @@
+<!doctype html>
+<!--
+SPDX-FileCopyrightText: 2026 Alexandru Ciobanu
+SPDX-License-Identifier: MIT
+-->
+
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZenTouch Help</title>
+<style>
+:root { color-scheme: light dark; font: 16px/1.6 -apple-system, sans-serif; }
+body { max-width: 680px; margin: 64px auto; padding: 0 24px; }
+h1 { font-size: 36px; letter-spacing: -.04em; }
+h2 { font-size: 21px; margin-top: 32px; }
+li { margin: 8px 0; } code { font-size: 14px; }
+</style>
+<h1>ZenTouch</h1>
+<p>Multi-touch input for your ASUS ZenScreen Touch MB16AMTR.</p>
+<h2>Start touch input</h2>
+<ol>
+<li>Connect the ZenScreen's USB data cable. Video alone does not carry finger contacts.</li>
+<li>Open <strong>Settings…</strong> from the ZenTouch menu bar icon.</li>
+<li>Allow <strong>Input Monitoring</strong> and <strong>Accessibility</strong>. Enable ZenTouch in macOS Settings, then quit and reopen it if requested. Green checks show the grants seen by this app.</li>
+<li>Select your ZenScreen, keep it in landscape at 0° rotation, and click <strong>Enable Touch Input</strong>.</li>
+</ol>
+<h2>Gestures</h2>
+<ul>
+<li>Tap with one finger to click. Move one finger to drag.</li>
+<li>Move two fingers together to scroll. Tap with two fingers to right-click.</li>
+<li>Hold one finger still, then lift it, for a right-click.</li>
+<li>Experimental pinch is optional; compatibility varies between apps.</li>
+</ul>
+<h2>The menu bar</h2>
+<p>Closing Settings leaves touch input running. The checked <strong>Active</strong> menu item means touch input is running. Click it to stop or resume input. <strong>Quit ZenTouch</strong> stops input, requests the controller's previous mode, and exits.</p>
+<p>ZenTouch remembers the chosen display and whether input was enabled. Sleep or locking pauses input; waking resumes it if the display and permissions are still available. After a USB disconnect or a display configuration change, check Settings and enable input again.</p>
+<h2>Test and troubleshoot</h2>
+<p><strong>Test Finger Contacts</strong> previews contacts without clicking or scrolling. Report and frame counts help identify a missing USB connection or a decoding problem. Stop the test before enabling input.</p>
+<p><strong>Open Logs Folder</strong> opens <code>~/Library/Logs/ZenTouch</code>. Logs contain touch-controller reports and translated actions. Rotation retains the current file and two 8 MiB archives. The Mac's other input devices are not recorded.</p>
+<p>If ZenTouch is missing from macOS Privacy &amp; Security, use the + button to add the installed app. Normal updates reuse its signing identity and do not reset permissions.</p>
+<h2>Supported hardware</h2>
+<p>This build supports the tested eGalaxTouch EXC3200-2505 controller (USB 0eef:c000) in the MB16AMTR. Clicks and two-finger scrolling have been physically verified. It does not yet provide complete Apple trackpad gesture behavior.</p>
+</html>

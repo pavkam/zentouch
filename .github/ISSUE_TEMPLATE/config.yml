@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Alexandru Ciobanu
+# SPDX-License-Identifier: MIT
+
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and setup help
+    url: https://github.com/pavkam/zentouch/discussions
+    about: Ask usage questions in Discussions.
+  - name: Security report
+    url: https://github.com/pavkam/zentouch/security/advisories/new
+    about: Report vulnerabilities privately.
