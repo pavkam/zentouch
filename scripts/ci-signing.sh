@@ -25,6 +25,7 @@ extendedKeyUsage = critical,codeSigning
 CONFIG
 openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 2 -config "$zentouch_ci_dir/certificate.cnf" \
     -keyout "$zentouch_ci_dir/key.pem" -out "$zentouch_ci_dir/certificate.pem" 2>/dev/null
+# Use the PKCS#12 algorithms supported by the macOS Keychain importer.
 openssl pkcs12 -export -inkey "$zentouch_ci_dir/key.pem" -in "$zentouch_ci_dir/certificate.pem" \
     -out "$zentouch_ci_dir/identity.p12" -passout "pass:$zentouch_ci_password" \
     -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg sha1

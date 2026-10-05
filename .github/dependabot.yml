@@ -11,3 +11,4 @@ updates:
       actions:
         patterns: ['*']
     open-pull-requests-limit: 3
+    labels: [dependencies]
