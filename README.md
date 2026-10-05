@@ -53,6 +53,8 @@ The build pins its public fingerprint locally and reuses that key. Updates refus
 
 The menu's checked **Active** item means input is enabled, including while waiting for the screen to wake. Its tooltip shows whether input is running or waiting. Click it to stop or resume input. Settings has one **Start Touch Input / Stop Touch Input** button and a live contact preview. **Quit ZenTouch** stops input and exits; closing Settings keeps it running.
 
+Enable **Show touch indicators** in Settings to display a pulsating teal ring around each finger on the ZenScreen. The rings follow your touches, let clicks pass through and work with Settings closed. You can change this option while input is running. They disappear on lift, Stop or disconnection; macOS Reduce Motion uses steady rings. The option is saved and off by default.
+
 ![One finger taps and drags; two fingers move together to scroll](docs/assets/gestures.png)
 
 | Gesture | Result |

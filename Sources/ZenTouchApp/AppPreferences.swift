@@ -19,6 +19,10 @@ final class AppPreferences {
         get { defaults.object(forKey: "threeFingerSwipes") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "threeFingerSwipes") }
     }
+    var showTouchIndicators: Bool {
+        get { defaults.bool(forKey: "showTouchIndicators") }
+        set { defaults.set(newValue, forKey: "showTouchIndicators") }
+    }
     var displayID: UInt32? {
         get { (defaults.object(forKey: "selectedDisplayID") as? NSNumber)?.uint32Value }
         set {

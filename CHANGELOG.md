@@ -7,6 +7,7 @@ SPDX-License-Identifier: MIT
 
 ## 0.4.0 — unreleased
 
+- Add optional pulsating touch indicators on the selected ZenScreen. The overlay follows each finger, lets clicks pass through, stays visible with Settings closed and clears on lift, Stop, disconnect or stalled input. Respect Reduce Motion and save the setting.
 - Simplify Settings to one Start/Stop button and a live touch preview. Remove contact-test controls and report/frame counters from the UI, fit the window to its contents and use the preview to fill extra height when resized.
 - Add three-finger desktop, Mission Control and App Exposé swipes using native Dock gestures and commands.
 - Include the raw IOHID payload required by macOS 27, isolated from public mouse/scroll posting.

@@ -14,6 +14,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let displays = NSPopUpButton()
     private let pinch = NSButton(checkboxWithTitle: "Enable experimental pinch", target: nil, action: nil)
     private let swipes = NSButton(checkboxWithTitle: "Enable three-finger swipes", target: nil, action: nil)
+    private let indicators = NSButton(checkboxWithTitle: "Show touch indicators", target: nil, action: nil)
     private let toggle = NSButton(title: "Start Touch Input", target: nil, action: nil)
     private let logs = NSButton(title: "Open Logs Folder", target: nil, action: nil)
     private let status = NSTextField(wrappingLabelWithString: "Ready.")
@@ -25,6 +26,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     var onSelectDisplay: ((ScreenTarget?) -> Void)?
     var onPinchChange: ((Bool) -> Void)?
     var onSwipesChange: ((Bool) -> Void)?
+    var onIndicatorsChange: ((Bool) -> Void)?
     var onLogs: (() -> Void)?
 
     init() {
@@ -99,6 +101,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         pinchNote.font = .systemFont(ofSize: 11)
         pinchNote.textColor = .secondaryLabelColor
         add(pinchNote)
+        indicators.target = self
+        indicators.action = #selector(changeIndicators)
+        add(indicators)
         toggle.target = self
         toggle.action = #selector(toggleInput)
         toggle.bezelStyle = .rounded
@@ -151,7 +156,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
     func update(
         state: SessionState, permissions: PermissionState, targets: [ScreenTarget], selected: ScreenTarget?,
-        controllerAvailable: Bool, experimentalPinch: Bool, threeFingerSwipes: Bool, inputRequested: Bool,
+        controllerAvailable: Bool, experimentalPinch: Bool, threeFingerSwipes: Bool, showTouchIndicators: Bool,
+        inputRequested: Bool,
         message: String
     ) {
         inputLabel.stringValue =
@@ -182,6 +188,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         pinch.state = experimentalPinch ? .on : .off
         swipes.isEnabled = !state.isRunning
         swipes.state = threeFingerSwipes ? .on : .off
+        indicators.state = showTouchIndicators ? .on : .off
         let canStop = state.isRunning || inputRequested
         toggle.title = canStop ? "Stop Touch Input" : "Start Touch Input"
         toggle.isEnabled = canStop || (permissions.canBridge && selected != nil && controllerAvailable)
@@ -201,5 +208,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
     @objc private func changePinch() { onPinchChange?(pinch.state == .on) }
     @objc private func changeSwipes() { onSwipesChange?(swipes.state == .on) }
+    @objc private func changeIndicators() { onIndicatorsChange?(indicators.state == .on) }
     @objc private func showLogs() { onLogs?() }
 }

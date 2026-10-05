@@ -8,6 +8,7 @@ import pathlib
 import plistlib
 import subprocess
 import tempfile
+import time
 
 repo = pathlib.Path(__file__).resolve().parent.parent
 with (repo / "dist/ZenTouch.app/Contents/Info.plist").open("rb") as stream:
@@ -31,6 +32,25 @@ def verify(app):
     subprocess.run(["python3", str(repo / "scripts/verify-bundle.py"), str(app)], check=True)
     arches = subprocess.check_output(["lipo", "-archs", str(app / "Contents/MacOS/ZenTouch")], text=True).split()
     assert arches == [architecture], f"Unexpected release architecture: {arches}"
+
+
+def detach_validation_mount(mount):
+    # macOS may briefly hold a relocated app after signature/resource checks.
+    for attempt in range(3):
+        try:
+            result = subprocess.run(
+                ["hdiutil", "detach", str(mount)], capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode == 0:
+                return
+        except subprocess.TimeoutExpired:
+            pass
+        if attempt < 2:
+            time.sleep(1)
+    # Only our private, read-only validation mount is eligible for forced cleanup.
+    subprocess.run(
+        ["hdiutil", "detach", "-force", str(mount)], check=True, timeout=30, stdout=subprocess.DEVNULL,
+    )
 
 
 with tempfile.TemporaryDirectory(prefix="zentouch-release-") as directory:
@@ -60,5 +80,5 @@ with tempfile.TemporaryDirectory(prefix="zentouch-release-") as directory:
         for name in ("LICENSE", "README.md", "THIRD-PARTY-NOTICES.md", "docs/quality-pass.md", "docs/feasibility.md"):
             assert (mount / name).is_file(), f"Missing release documentation: {name}"
     finally:
-        subprocess.run(["hdiutil", "detach", str(mount)], check=True, stdout=subprocess.DEVNULL)
+        detach_validation_mount(mount)
 print("PASS DMG/ZIP relocation, signatures, resources, architecture, checksums and missing-profile recovery")

@@ -119,4 +119,10 @@ The HID manager uses `IOHIDManagerOptions.independentDevices` and stays open and
 
 Developer launch options **--enable-input**, **--test-touch** and **--show-settings** start input, show a contact test, or open Settings explicitly.
 
+## Touch indicators
+
+`TouchIndicatorOverlay` renders keyed Core Animation layers in one transparent, nonactivating panel on the selected display. Normalized top-left controller coordinates map to AppKit's bottom-left display coordinates with the bridge's edge clamping. Existing layers move without implicit position animation; each finger has a steady center and an expanding, fading outer ring. Reduce Motion disables the pulse. Idle/lift removes all animated layers and hides the panel; Stop, display loss or disabling the option closes it. A two-second contact timeout also clears stalled reports.
+
+The **Show touch indicators** checkbox can change while input runs, persists independently and defaults off. **--show-touch-indicators** enables it explicitly for a developer launch. The signed GUI smoke check exercises synthetic contacts, focus preservation, pulse configuration, lift, opt-out, stopped state, invalid coordinates and stale-contact cleanup without reading HID or posting input. It also renders only the overlay's own layer into a sibling PNG for visual inspection.
+
 See [the platform investigation](feasibility.md) and [the quality pass](quality-pass.md) for verified behavior and remaining limits.

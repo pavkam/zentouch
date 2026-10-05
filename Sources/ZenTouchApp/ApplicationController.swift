@@ -9,6 +9,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     private let reader = HIDReader()
     private lazy var session = TouchSession(reader: reader)
     private let preferences = AppPreferences()
+    private let indicators = TouchIndicatorOverlay()
     private var menuBar: MenuBarController?
     private var settings: SettingsWindowController?
     private var refreshTimer: Timer?
@@ -20,6 +21,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     private var message = "Use the menu bar to enable touch input."
     private var lastPermissions: PermissionState?
     private var latestFrame = TouchFrame(scanTime: 0, touches: [])
+    private var latestFrameAt = 0.0
     private var suspension: SuspensionReasons = []
     private var suspended: Bool { !suspension.isEmpty }
     private lazy var recovery = SessionRecovery(session: session)
@@ -38,10 +40,12 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         let preview = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.settings?.updatePreview(frame: self.latestFrame)
+            self.indicators.poll()
         }
         RunLoop.main.add(preview, forMode: .common)
         previewTimer = preview
         let args = CommandLine.arguments
+        if args.contains("--show-touch-indicators") { preferences.showTouchIndicators = true }
         if let index = args.firstIndex(of: "--smoke-test"), args.indices.contains(index + 1) {
             refresh(allowResume: false)
             runSmokeTest(output: URL(fileURLWithPath: args[index + 1]))
@@ -80,7 +84,11 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     }
 
     private func configureSession() {
-        session.onFrame = { [weak self] frame in self?.latestFrame = frame }
+        session.onFrame = { [weak self] frame in
+            self?.latestFrame = frame
+            self?.latestFrameAt = ProcessInfo.processInfo.systemUptime
+            self?.indicators.update(frame)
+        }
         session.onStatus = { [weak self] message in self?.setMessage(message) }
         session.onState = { [weak self] _ in
             guard let self else { return }
@@ -128,6 +136,15 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             }
             view.onPinchChange = { [weak self] enabled in self?.preferences.experimentalPinch = enabled }
             view.onSwipesChange = { [weak self] enabled in self?.preferences.threeFingerSwipes = enabled }
+            view.onIndicatorsChange = { [weak self] enabled in
+                guard let self else { return }
+                self.preferences.showTouchIndicators = enabled
+                diagnostics.record("app.touchIndicators.changed", ["enabled": enabled])
+                self.updatePresentation()
+                if enabled, ProcessInfo.processInfo.systemUptime - self.latestFrameAt < 0.25 {
+                    self.indicators.update(self.latestFrame)
+                }
+            }
             settings = view
         }
         updatePresentation()
@@ -223,13 +240,16 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     private func updatePresentation() {
         let permissions = PermissionState.current
         let selected = preferences.selectedTarget(in: targets)
+        indicators.configure(
+            enabled: preferences.showTouchIndicators, target: selected, active: session.state == .running(.input))
         menuBar?.update(
             state: session.state, permissions: permissions, targetAvailable: selected?.geometry?.supported == true,
             controllerAvailable: controllerAvailable, inputRequested: recovery.requested)
         settings?.update(
             state: session.state, permissions: permissions, targets: targets, selected: selected,
             controllerAvailable: controllerAvailable, experimentalPinch: preferences.experimentalPinch,
-            threeFingerSwipes: preferences.threeFingerSwipes, inputRequested: recovery.requested, message: message
+            threeFingerSwipes: preferences.threeFingerSwipes, showTouchIndicators: preferences.showTouchIndicators,
+            inputRequested: recovery.requested, message: message
         )
     }
     private func openPrivacy(input: Bool) {
@@ -310,6 +330,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         refreshTimer?.invalidate()
         previewTimer?.invalidate()
         session.stop(reason: "ZenTouch is quitting.")
+        indicators.stop()
         dockTrace?.stop()
         for (center, token) in observers { center.removeObserver(token) }
         for signal in signals { signal.cancel() }
@@ -353,6 +374,48 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 inspect(root)
             }
             window.setFrame(originalFrame, display: true)
+            var overlayChecks: [String: Bool] = [:]
+            if let target = self.preferences.selectedTarget(in: ScreenTarget.all) {
+                var clock = 0.0
+                let overlay = TouchIndicatorOverlay(now: { clock })
+                let keyWindow = NSApp.keyWindow
+                overlay.configure(enabled: true, target: target, active: true)
+                overlay.update(
+                    TouchFrame(
+                        scanTime: 1,
+                        touches: [
+                            Touch(id: 1, x: 0.25, y: 0.35), Touch(id: 2, x: 0.7, y: 0.65),
+                        ]))
+                overlayChecks["visibleForTwoContacts"] = overlay.isVisible && overlay.indicatorCount == 2
+                overlayChecks["mouseTransparentAndNonactivating"] =
+                    overlay.isNonInteractive
+                    && NSApp.keyWindow === keyWindow
+                overlayChecks["respectsReduceMotion"] =
+                    overlay.pulseCount
+                    == (NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 2)
+                do {
+                    try overlay.writePreview(to: output.deletingPathExtension().appendingPathExtension("png"))
+                    overlayChecks["renderedPreview"] = true
+                } catch { overlayChecks["renderedPreview"] = false }
+                overlay.update(TouchFrame(scanTime: 2, touches: [Touch(id: 2, x: 0.5, y: 0.5)]))
+                overlayChecks["removesLiftedFinger"] = overlay.indicatorCount == 1 && overlay.positions[1] == nil
+                overlay.update(TouchFrame(scanTime: 3, touches: []))
+                overlayChecks["hidesOnLift"] = !overlay.isVisible && overlay.indicatorCount == 0
+                overlay.update(TouchFrame(scanTime: 4, touches: [Touch(id: 1, x: 0.5, y: 0.5)]))
+                clock = 2.1
+                overlay.poll()
+                overlayChecks["clearsStalledContacts"] = !overlay.isVisible && overlay.indicatorCount == 0
+                overlay.update(TouchFrame(scanTime: 5, touches: [Touch(id: 1, x: 0.5, y: 0.5)]))
+                overlay.update(TouchFrame(scanTime: 6, touches: [Touch(id: 1, x: .nan, y: 0.5)]))
+                overlayChecks["rejectsInvalidCoordinates"] = !overlay.isVisible && overlay.indicatorCount == 0
+                overlay.update(TouchFrame(scanTime: 7, touches: [Touch(id: 1, x: 0.5, y: 0.5)]))
+                overlay.configure(enabled: false, target: target, active: true)
+                overlayChecks["clearsWhenDisabled"] = !overlay.isVisible && overlay.indicatorCount == 0
+                overlay.configure(enabled: true, target: target, active: true)
+                overlay.update(TouchFrame(scanTime: 8, touches: [Touch(id: 1, x: 0.5, y: 0.5)]))
+                overlay.configure(enabled: true, target: target, active: false)
+                overlayChecks["clearsWhenStopped"] = !overlay.isVisible && overlay.indicatorCount == 0
+            }
             // A paused/absent controller must not trap the user in auto-resume.
             self.menuBar?.update(
                 state: .stopped, permissions: .current, targetAvailable: false,
@@ -360,6 +423,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             self.settings?.update(
                 state: .stopped, permissions: .current, targets: [], selected: nil,
                 controllerAvailable: false, experimentalPinch: false, threeFingerSwipes: true,
+                showTouchIndicators: false,
                 inputRequested: true, message: "Waiting for the controller.")
             let report: [String: Any] = [
                 "name": AppIdentity.name, "version": AppIdentity.version,
@@ -374,6 +438,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                     && self.settings?.canStop == true,
                 "ambiguousViews": ambiguous, "clippedViews": clipped,
                 "contentBottomPadding": bottomPadding,
+                "touchIndicatorChecks": overlayChecks,
                 "appIconPresent": Bundle.main.url(forResource: "ZenTouch", withExtension: "icns") != nil,
                 "menuIconPresent": Bundle.main.url(forResource: "MenuBarTemplate", withExtension: "png") != nil,
             ]
