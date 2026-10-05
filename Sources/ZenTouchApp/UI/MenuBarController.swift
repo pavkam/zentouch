@@ -9,11 +9,9 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     var requestedInputCanBeStopped: Bool { toggle.state == .on && toggle.isEnabled }
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let toggle = NSMenuItem(title: "Active", action: nil, keyEquivalent: "")
-    private let test = NSMenuItem(title: "Test Finger Contacts…", action: nil, keyEquivalent: "")
     private let input = NSMenuItem(title: "Input Monitoring", action: nil, keyEquivalent: "")
     private let accessibility = NSMenuItem(title: "Accessibility", action: nil, keyEquivalent: "")
     var onToggle: (() -> Void)?
-    var onTest: (() -> Void)?
     var onSettings: (() -> Void)?
     var onInputSettings: (() -> Void)?
     var onAccessibilitySettings: (() -> Void)?
@@ -38,9 +36,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.autoenablesItems = false
         menu.delegate = self
         bind(toggle, #selector(toggleInput))
-        bind(test, #selector(testContacts))
         menu.addItem(toggle)
-        menu.addItem(test)
         menu.addItem(action("Settings…", #selector(showSettings), key: ","))
         menu.addItem(.separator())
         bind(input, #selector(openInputSettings))
@@ -78,9 +74,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         toggle.state = inputRequested ? .on : .off
         toggle.isEnabled =
             inputRequested || (permissions.canBridge && targetAvailable && controllerAvailable)
-        test.state = state == .running(.contacts) ? .on : .off
-        test.isEnabled =
-            state == .running(.contacts) || (!state.isRunning && permissions.inputMonitoring && controllerAvailable)
         input.title = "Input Monitoring\(permissions.inputMonitoring ? " Granted" : " Required")"
         input.state = permissions.inputMonitoring ? .on : .off
         accessibility.title =
@@ -89,7 +82,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
     func menuWillOpen(_ menu: NSMenu) { onRefresh?() }
     @objc private func toggleInput() { onToggle?() }
-    @objc private func testContacts() { onTest?() }
     @objc private func showSettings() { onSettings?() }
     @objc private func openInputSettings() { onInputSettings?() }
     @objc private func openAccessibilitySettings() { onAccessibilitySettings?() }

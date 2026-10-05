@@ -49,9 +49,9 @@ The build pins its public fingerprint locally and reuses that key. Updates refus
 1. Connect the ZenScreen's **USB data connection**. Video alone does not carry touch input.
 2. Open ZenTouch, then choose **Settings…** from its menu bar icon.
 3. Allow **Input Monitoring** and **Accessibility** in macOS Settings. Quit and reopen ZenTouch if macOS requests it. The green checks show the grants seen by the running app.
-4. Select the ZenScreen, set display rotation to **0°**, and click **Enable Touch Input**.
+4. Select the ZenScreen, set display rotation to **0°**, and click **Start Touch Input**.
 
-The menu's checked **Active** item means input is enabled, including while waiting for the screen to wake. Its tooltip shows whether input is running or waiting. Click it to stop or resume input. **Quit ZenTouch** stops input and exits; closing Settings keeps it running.
+The menu's checked **Active** item means input is enabled, including while waiting for the screen to wake. Its tooltip shows whether input is running or waiting. Click it to stop or resume input. Settings has one **Start Touch Input / Stop Touch Input** button and a live contact preview. **Quit ZenTouch** stops input and exits; closing Settings keeps it running.
 
 ![One finger taps and drags; two fingers move together to scroll](docs/assets/gestures.png)
 
@@ -73,7 +73,7 @@ ZenTouch remembers the selected display and whether input was enabled. Sleep or 
 
 ## If something doesn't work
 
-- **No finger contacts:** check the USB data cable and Input Monitoring. Choose **Test Finger Contacts…** to preview contacts without sending clicks. Click that menu item again, or Stop in Settings, to end the test.
+- **No finger contacts:** check the USB data cable and Input Monitoring. With touch input running, Settings shows contacts in its preview. Open the logs folder for controller reports and decoding errors.
 - **Contacts appear but input doesn't:** check Accessibility and the selected display. The permission checks refresh while the app runs.
 - **App missing from Privacy & Security:** use **+** to add the installed ZenTouch app. Keep the same signing identity and installation path for updates.
 - **Pointer alignment changed:** stop input, select the correct screen and keep rotation at 0°. Display reconfiguration intentionally stops the current session.

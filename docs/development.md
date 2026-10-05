@@ -25,14 +25,14 @@ The build pins the signing certificate's public fingerprint in ignored **.zentou
 
 1. Open **Settings…** from the ZenTouch menu bar icon.
 2. Allow **Input Monitoring** and **Accessibility** in macOS Settings. Quit and reopen if macOS requests it. Green checks show grants seen by the running app.
-3. Select the ZenScreen, keep its rotation at **0°**, and click **Enable Touch Input**.
+3. Select the ZenScreen, keep its rotation at **0°**, and click **Start Touch Input**.
 4. Tap to click, move one finger to drag, move two fingers together to scroll, or tap with two fingers to right-click. A stationary long touch also right-clicks on release.
 
-**Test Finger Contacts** previews contacts without posting input. The report and frame counts help diagnose missing input. Stop the test before enabling touch input.
+Settings uses one **Start Touch Input / Stop Touch Input** button and a live contact preview. Controller report/frame counts remain in the logs rather than the Settings form. Developers can use **--test-touch** for contact-only capture without posting input.
 
-ZenTouch remembers the display, experimental pinch preference, and whether input was enabled. Sleep or locking pauses input; wake or session activation resumes it once all suspension reasons clear. USB disconnects, permission loss and display changes stop the session; check Settings and enable input again.
+ZenTouch remembers the display, experimental pinch preference, and whether input was enabled. Sleep or locking pauses input; wake or session activation resumes it once all suspension reasons clear. USB disconnects, permission loss and display changes pause capture; input resumes when the selected display and permissions return.
 
-Turning off **Active** in the menu (or **Stop** in Settings) releases active gestures and requests the previous controller mode. **Quit ZenTouch** performs the same cleanup and exits. An abrupt kill cannot run cleanup; reconnect the USB cable if the controller needs resetting.
+Turning off **Active** in the menu (or clicking **Stop Touch Input** in Settings) releases active gestures, cancels pending recovery and requests the previous controller mode. **Quit ZenTouch** performs the same cleanup and exits. An abrupt kill cannot run cleanup; reconnect the USB cable if the controller needs resetting.
 
 If the app is missing from Privacy & Security, use **+** to add the installed app. The initial prototype used an ad-hoc signature; migration to the stable certificate required one app-scoped TCC reset. Normal updates preserve the signing requirement and do not reset permissions.
 

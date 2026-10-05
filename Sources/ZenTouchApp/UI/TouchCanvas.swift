@@ -7,6 +7,9 @@ import ZenTouchCore
 final class TouchCanvas: NSView {
     var touches: [Touch] = [] { didSet { needsDisplay = true } }
     override var isFlipped: Bool { true }
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: NSView.noIntrinsicMetric, height: 170)
+    }
     override init(frame: NSRect) {
         super.init(frame: frame)
         setAccessibilityElement(true)

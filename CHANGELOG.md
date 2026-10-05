@@ -7,6 +7,7 @@ SPDX-License-Identifier: MIT
 
 ## 0.4.0 — unreleased
 
+- Simplify Settings to one Start/Stop button and a live touch preview. Remove contact-test controls and report/frame counters from the UI, fit the window to its contents and use the preview to fill extra height when resized.
 - Add three-finger desktop, Mission Control and App Exposé swipes using native Dock gestures and commands.
 - Include the raw IOHID payload required by macOS 27, isolated from public mouse/scroll posting.
 - Recognize sequential finger placement and suppress residual contacts after lift or cancellation.

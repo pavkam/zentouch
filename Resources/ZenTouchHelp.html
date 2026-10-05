@@ -22,7 +22,7 @@ li { margin: 8px 0; } code { font-size: 14px; }
 <li>Connect the ZenScreen's USB data cable. Video alone does not carry finger contacts.</li>
 <li>Open <strong>Settings…</strong> from the ZenTouch menu bar icon.</li>
 <li>Allow <strong>Input Monitoring</strong> and <strong>Accessibility</strong>. Enable ZenTouch in macOS Settings, then quit and reopen it if requested. Green checks show the grants seen by this app.</li>
-<li>Select your ZenScreen, keep it in landscape at 0° rotation, and click <strong>Enable Touch Input</strong>.</li>
+<li>Select your ZenScreen, keep it in landscape at 0° rotation, and click <strong>Start Touch Input</strong>.</li>
 </ol>
 <h2>Gestures</h2>
 <ul>
@@ -36,8 +36,8 @@ li { margin: 8px 0; } code { font-size: 14px; }
 <h2>The menu bar</h2>
 <p>Closing Settings leaves touch input running. The checked <strong>Active</strong> menu item means touch input is enabled, including while waiting for the controller. The icon’s tooltip shows its current status. Click it to stop or resume input. <strong>Quit ZenTouch</strong> stops input, requests the controller's previous mode, and exits.</p>
 <p>ZenTouch remembers the chosen display and whether input was enabled. Sleep or locking pauses input; waking resumes it if the display and permissions are still available. Monitor power saving, USB disconnects and display changes pause input. ZenTouch automatically reopens the controller when the selected screen and permissions return; Stop keeps input off.</p>
-<h2>Test and troubleshoot</h2>
-<p><strong>Test Finger Contacts</strong> previews contacts without clicking or scrolling. Report and frame counts help identify a missing USB connection or a decoding problem. Stop the test before enabling input.</p>
+<h2>Settings and troubleshooting</h2>
+<p>Settings has one <strong>Start Touch Input / Stop Touch Input</strong> button. The contact surface previews your fingers while input is running. Stop also cancels automatic resuming while the screen is unavailable.</p>
 <p><strong>Open Logs Folder</strong> opens <code>~/Library/Logs/ZenTouch</code>. Logs contain touch-controller reports and translated actions. Rotation retains the current file and two 8 MiB archives. The Mac's other input devices are not recorded.</p>
 <p>If ZenTouch is missing from macOS Privacy &amp; Security, use the + button to add the installed app. Normal updates reuse its signing identity and do not reset permissions.</p>
 <h2>Supported hardware</h2>

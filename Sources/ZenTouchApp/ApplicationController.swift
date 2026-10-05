@@ -20,7 +20,6 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     private var message = "Use the menu bar to enable touch input."
     private var lastPermissions: PermissionState?
     private var latestFrame = TouchFrame(scanTime: 0, touches: [])
-    private var latestStatistics = ReportStatistics()
     private var suspension: SuspensionReasons = []
     private var suspended: Bool { !suspension.isEmpty }
     private lazy var recovery = SessionRecovery(session: session)
@@ -38,7 +37,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         refreshTimer = refreshTask
         let preview = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self else { return }
-            self.settings?.updatePreview(frame: self.latestFrame, statistics: self.latestStatistics)
+            self.settings?.updatePreview(frame: self.latestFrame)
         }
         RunLoop.main.add(preview, forMode: .common)
         previewTimer = preview
@@ -82,7 +81,6 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
 
     private func configureSession() {
         session.onFrame = { [weak self] frame in self?.latestFrame = frame }
-        session.onReport = { [weak self] counts in self?.latestStatistics = counts }
         session.onStatus = { [weak self] message in self?.setMessage(message) }
         session.onState = { [weak self] _ in
             guard let self else { return }
@@ -101,16 +99,6 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 self.start(.input)
             }
         }
-        menu.onTest = { [weak self] in
-            guard let self else { return }
-            if self.session.state == .running(.contacts) {
-                self.stop()
-            } else {
-                if self.session.state.isRunning { self.stop() }
-                self.showSettings()
-                self.start(.contacts)
-            }
-        }
         menu.onSettings = { [weak self] in self?.showSettings() }
         menu.onInputSettings = { [weak self] in self?.openPrivacy(input: true) }
         menu.onAccessibilitySettings = { [weak self] in self?.openPrivacy(input: false) }
@@ -123,9 +111,14 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     private func showSettings() {
         if settings == nil {
             let view = SettingsWindowController()
-            view.onEnable = { [weak self] in self?.start(.input) }
-            view.onTest = { [weak self] in self?.start(.contacts) }
-            view.onStop = { [weak self] in self?.stop() }
+            view.onToggle = { [weak self] in
+                guard let self else { return }
+                if self.recovery.requested || self.session.state.isRunning {
+                    self.stop()
+                } else {
+                    self.start(.input)
+                }
+            }
             view.onInputSettings = { [weak self] in self?.openPrivacy(input: true) }
             view.onAccessibilitySettings = { [weak self] in self?.openPrivacy(input: false) }
             view.onLogs = { [weak self] in self?.showLogs() }
@@ -139,7 +132,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         }
         updatePresentation()
         settings?.present()
-        settings?.updatePreview(frame: latestFrame, statistics: latestStatistics)
+        settings?.updatePreview(frame: latestFrame)
     }
 
     private func start(_ kind: SessionKind) {
@@ -157,7 +150,6 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             } else {
                 try session.start(kind: kind, target: target)
             }
-            latestStatistics = reader.statistics
             setMessage(
                 kind == .input
                     ? "Touch input is active. Tap or drag with one finger; scroll with two; swipe with three."
@@ -209,7 +201,6 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                         : "Waiting for the selected ZenScreen and its USB touch controller.")
             case .started:
                 if let target { preferences.select(target) }
-                latestStatistics = reader.statistics
                 diagnostics.record("app.input.resumed")
                 setMessage("Touch input resumed automatically.")
             case .failed(let error):
@@ -334,11 +325,15 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             root.layoutSubtreeIfNeeded()
             var ambiguous: [String] = []
             var clipped: [String] = []
+            var bottomPadding: [String: CGFloat] = [:]
             var scenario = ""
             func inspect(_ view: NSView) {
                 if view.hasAmbiguousLayout { ambiguous.append("\(scenario): \(type(of: view))") }
                 if view !== root, !view.isHidden {
                     let frame = view.convert(view.bounds, to: root)
+                    if let button = view as? NSButton, button.title == "Open Logs Folder" {
+                        bottomPadding[scenario] = root.isFlipped ? root.bounds.height - frame.maxY : frame.minY
+                    }
                     if frame.minY < -1 || frame.maxY > root.bounds.height + 1 || frame.minX < -1
                         || frame.maxX > root.bounds.width + 1
                     {
@@ -378,6 +373,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 "waitingInputCanBeStopped": self.menuBar?.requestedInputCanBeStopped == true
                     && self.settings?.canStop == true,
                 "ambiguousViews": ambiguous, "clippedViews": clipped,
+                "contentBottomPadding": bottomPadding,
                 "appIconPresent": Bundle.main.url(forResource: "ZenTouch", withExtension: "icns") != nil,
                 "menuIconPresent": Bundle.main.url(forResource: "MenuBarTemplate", withExtension: "png") != nil,
             ]
