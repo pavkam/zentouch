@@ -22,7 +22,8 @@ def artifact(extension):
 
 for line in artifact(".sha256").read_text().splitlines():
     digest, name = line.split(maxsplit=1)
-    file = repo / name
+    assert pathlib.Path(name).name == name, f'Checksum must use a downloadable artifact basename: {name}'
+    file = repo / 'dist' / name
     assert hashlib.sha256(file.read_bytes()).hexdigest() == digest, f"Checksum mismatch: {name}"
 
 
