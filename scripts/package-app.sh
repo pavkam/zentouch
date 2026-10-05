@@ -18,6 +18,9 @@ ditto docs "$zentouch_dmg_stage/docs"
 hdiutil create -volname "ZenTouch ${zentouch_version}" -srcfolder "$zentouch_dmg_stage" -format UDZO -ov "dist/${zentouch_name}.dmg"
 hdiutil verify "dist/${zentouch_name}.dmg"
 ditto -c -k --sequesterRsrc --keepParent dist/ZenTouch.app "dist/${zentouch_name}.zip"
-shasum -a 256 "dist/${zentouch_name}.dmg" "dist/${zentouch_name}.zip" > "dist/${zentouch_name}.sha256"
+(
+    cd dist
+    shasum -a 256 "${zentouch_name}.dmg" "${zentouch_name}.zip" > "${zentouch_name}.sha256"
+)
 python3 scripts/check-package.py
 print "Packaged $PWD/dist/${zentouch_name}.dmg"

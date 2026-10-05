@@ -18,6 +18,8 @@ The tested controller is **eGalaxTouch EXC3200-2505**, USB **0eef:c000**. ZenTou
 
 Download an **arm64 preview** from [Releases](https://github.com/pavkam/zentouch/releases), open the DMG and drag ZenTouch into Applications. Keep one installed copy and use that same path when granting permissions.
 
+The release includes a ZIP and SHA-256 manifest too. With both archives and the manifest downloaded into the same folder, verify them with `shasum -a 256 -c ZenTouch-0.3.0-arm64.sha256`.
+
 Preview binaries are signed with the maintainer's stable local certificate. They are **not Developer ID notarized**; macOS may block opening them. Use Privacy & Security → **Open Anyway** if you choose to run the preview, or build from source with your own signing identity. Never install the disposable packages from CI artifacts over a working app.
 
 ### Build from source
