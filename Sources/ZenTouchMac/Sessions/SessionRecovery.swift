@@ -40,6 +40,14 @@ public final class SessionRecovery {
         available: Bool, suspended: Bool, target: ScreenTarget?, pinch: Bool = false, swipes: Bool = true
     ) -> Result {
         session.poll()
+        // Display/HID enumeration may change before the session's own snapshot.
+        // Never continue posting input after the app reports lost hardware.
+        if session.state == .running(.input), !available || suspended {
+            session.stop(
+                reason: suspended
+                    ? "Touch input paused while the Mac sleeps or locks."
+                    : "Touch input paused: the selected display or USB touch controller is unavailable.")
+        }
         guard requested, !suspended, !session.state.isRunning else { return .idle }
         guard available else {
             nextAttempt = 0

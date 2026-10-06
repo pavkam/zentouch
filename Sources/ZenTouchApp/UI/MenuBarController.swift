@@ -7,6 +7,11 @@ import ZenTouchMac
 final class MenuBarController: NSObject, NSMenuDelegate {
     var isVisible: Bool { item.isVisible }
     var requestedInputCanBeStopped: Bool { toggle.state == .on && toggle.isEnabled }
+    var canStart: Bool { toggle.state == .off && toggle.isEnabled }
+    var hasDisconnectedIcon: Bool { item.button?.image === disconnectedIcon }
+    private let connectedIcon = MenuBarController.icon("MenuBarTemplate", fallback: "hand.tap")
+    private let disconnectedIcon = MenuBarController.icon(
+        "MenuBarDisconnectedTemplate", fallback: "display.trianglebadge.exclamationmark")
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     private let toggle = NSMenuItem(title: "Active", action: nil, keyEquivalent: "")
     private let input = NSMenuItem(title: "Input Monitoring", action: nil, keyEquivalent: "")
@@ -22,15 +27,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     override init() {
         super.init()
         item.autosaveName = "ZenTouchStatusItem"
-        if let imageURL = Bundle.main.url(forResource: "MenuBarTemplate", withExtension: "png"),
-            let image = NSImage(contentsOf: imageURL)
-        {
-            image.isTemplate = true
-            image.size = NSSize(width: 18, height: 18)
-            item.button?.image = image
-        } else {
-            item.button?.image = NSImage(systemSymbolName: "hand.tap", accessibilityDescription: "ZenTouch")
-        }
+        item.button?.image = disconnectedIcon
         item.button?.setAccessibilityLabel("ZenTouch")
         let menu = NSMenu(title: AppIdentity.name)
         menu.autoenablesItems = false
@@ -51,6 +48,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(action("Quit ZenTouch", #selector(quit), key: "q"))
         item.menu = menu
     }
+    private static func icon(_ name: String, fallback: String) -> NSImage? {
+        let image =
+            Bundle.main.url(forResource: name, withExtension: "png").flatMap { NSImage(contentsOf: $0) }
+            ?? NSImage(systemSymbolName: fallback, accessibilityDescription: "ZenTouch")
+        image?.isTemplate = true
+        image?.size = NSSize(width: 18, height: 18)
+        return image
+    }
     private func bind(_ item: NSMenuItem, _ selector: Selector) {
         item.target = self
         item.action = selector
@@ -62,18 +67,30 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
     func update(
         state: SessionState, permissions: PermissionState, targetAvailable: Bool, controllerAvailable: Bool,
-        inputRequested: Bool
+        inputRequested: Bool, suspended: Bool = false, unavailableReason: String? = nil
     ) {
         let label: String
-        switch state {
-        case .stopped: label = inputRequested ? "Waiting to Resume Touch Input" : "Stopped"
-        case .running(.contacts): label = "Testing Contacts"
-        case .running(.input): label = "Touch Input Active"
+        let hardwareAvailable = targetAvailable && controllerAvailable
+        if !hardwareAvailable {
+            label =
+                (unavailableReason ?? "ZenScreen unavailable")
+                + (inputRequested ? " Waiting to resume touch input." : "")
+        } else if suspended {
+            label = "Touch Input Paused"
+        } else {
+            switch state {
+            case .stopped: label = inputRequested ? "Waiting to Resume Touch Input" : "Stopped"
+            case .running(.contacts): label = "Testing Contacts"
+            case .running(.input): label = "Touch Input Active"
+            }
         }
+        let icon = hardwareAvailable ? connectedIcon : disconnectedIcon
+        if item.button?.image !== icon { item.button?.image = icon }
         item.button?.toolTip = "ZenTouch — \(label)"
+        item.button?.setAccessibilityValue(label)
         toggle.state = inputRequested ? .on : .off
         toggle.isEnabled =
-            inputRequested || (permissions.canBridge && targetAvailable && controllerAvailable)
+            inputRequested || (permissions.canBridge && hardwareAvailable && !suspended)
         input.title = "Input Monitoring\(permissions.inputMonitoring ? " Granted" : " Required")"
         input.state = permissions.inputMonitoring ? .on : .off
         accessibility.title =

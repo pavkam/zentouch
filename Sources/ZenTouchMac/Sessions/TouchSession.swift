@@ -78,6 +78,9 @@ public final class TouchSession {
                 "target": target?.name ?? "none", "displayID": target?.id ?? 0,
             ])
         if kind == .input {
+            guard ModelCatalog.current != nil else {
+                throw ZenError(message: "ZenTouch's model catalog is missing or invalid. Reinstall the app.")
+            }
             guard permissions.canBridge else {
                 throw ZenError(message: "Allow ZenTouch Accessibility, then reopen it to enable input.")
             }

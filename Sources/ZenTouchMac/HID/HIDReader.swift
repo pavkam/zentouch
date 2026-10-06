@@ -30,9 +30,18 @@ public final class HIDReader: TouchReading {
     public var onFrame: ((TouchFrame) -> Void)?
     public var onReport: ((ReportStatistics) -> Void)?
     public var onDisconnect: (() -> Void)?
+    /// Discovery remains active even while capture is stopped.
+    public var onDevicesChanged: (() -> Void)?
     public var onError: ((String) -> Void)?
     public var statistics: ReportStatistics { ReportStatistics(reports: reportCount, frames: frameCount) }
     public var isConnected: Bool { device.map { devices().contains($0) } ?? false }
+    public var hasSupportedController: Bool {
+        let matches = matchingControllers()
+        guard matches.count == 1, let found = matches.first, let descriptor = DeviceProfile.descriptor else {
+            return false
+        }
+        return (IOHIDDeviceGetProperty(found, kIOHIDReportDescriptorKey as CFString) as? Data) == descriptor
+    }
 
     public init() {
         precondition(Thread.isMainThread)
@@ -46,9 +55,12 @@ public final class HIDReader: TouchReading {
         // manager's device snapshot never learns about a USB power-cycle.
         IOHIDManagerRegisterDeviceMatchingCallback(
             manager,
-            { _, result, _, added in
+            { context, result, _, added in
+                guard let context else { return }
+                let reader = Unmanaged<HIDReader>.fromOpaque(context).takeUnretainedValue()
                 diagnostics.record("hid.added", ["result": hidStatus(result), "device": deviceDetails(added)])
-            }, nil)
+                reader.onDevicesChanged?()
+            }, Unmanaged.passUnretained(self).toOpaque())
         IOHIDManagerRegisterDeviceRemovalCallback(
             manager,
             { context, _, _, removed in
@@ -56,6 +68,7 @@ public final class HIDReader: TouchReading {
                 let reader = Unmanaged<HIDReader>.fromOpaque(context).takeUnretainedValue()
                 diagnostics.record("hid.removed", ["device": deviceDetails(removed)])
                 if reader.device == removed { reader.onDisconnect?() }
+                reader.onDevicesChanged?()
             }, Unmanaged.passUnretained(self).toOpaque())
         IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
         openDiscovery()
@@ -82,6 +95,13 @@ public final class HIDReader: TouchReading {
         diagnostics.record("hid.discovery.open", ["result": hidStatus(result), "independentDevices": true])
     }
 
+    private func matchingControllers() -> [IOHIDDevice] {
+        devices().filter {
+            (IOHIDDeviceGetProperty($0, kIOHIDProductKey as CFString) as? String)?.hasPrefix(
+                DeviceProfile.productPrefix) == true
+        }
+    }
+
     public func start(seize: Bool, multitouch: Bool) throws {
         precondition(Thread.isMainThread)
         guard device == nil else { throw ZenError(message: "The reader is already running.") }
@@ -91,10 +111,7 @@ public final class HIDReader: TouchReading {
         frameCount = 0
         modeWarning = nil
         multitouchObserved = false
-        let matches = devices().filter {
-            (IOHIDDeviceGetProperty($0, kIOHIDProductKey as CFString) as? String)?.hasPrefix(
-                DeviceProfile.productPrefix) == true
-        }
+        let matches = matchingControllers()
         guard matches.count == 1, let found = matches.first else {
             throw ZenError(
                 message: matches.isEmpty

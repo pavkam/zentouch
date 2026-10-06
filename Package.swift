@@ -15,7 +15,10 @@ let package = Package(
     targets: [
         .target(
             name: "ZenTouchCore",
-            resources: [.copy("Resources/exc3200-descriptor.bin"), .copy("Resources/exc3200-descriptor.bin.license")]),
+            resources: [
+                .copy("Resources/exc3200-descriptor.bin"), .copy("Resources/exc3200-descriptor.bin.license"),
+                .copy("Resources/supported-models.json"), .copy("Resources/supported-models.json.license"),
+            ]),
         .target(name: "ZenTouchMac", dependencies: ["ZenTouchCore"]),
         .executableTarget(name: "ZenTouchApp", dependencies: ["ZenTouchMac", "ZenTouchCore"]),
         .executableTarget(name: "ZenTouchCLI", dependencies: ["ZenTouchMac", "ZenTouchCore"]),

@@ -7,6 +7,8 @@ SPDX-License-Identifier: MIT
 
 ## 0.4.0 — unreleased
 
+- Move display model matching into a packaged catalog with ASUS sources, exact model aliases and verified/unverified status. Include researched ASUS touch models without claiming untested controller support; expose the catalog through `zentouch-cli models` and reject missing or invalid packaged data.
+- Show a slashed menu bar icon when the display or USB touch controller is unavailable, disable hardware-dependent controls and restore them on reconnect. Refresh directly on display and USB attach/detach notifications, retain polling as a fallback and log availability transitions. Keep Stop available while waiting to resume.
 - Add optional pulsating touch indicators on the selected ZenScreen. The overlay follows each finger, lets clicks pass through, stays visible with Settings closed and clears on lift, Stop, disconnect or stalled input. Respect Reduce Motion and save the setting.
 - Simplify Settings to one Start/Stop button and a live touch preview. Remove contact-test controls and report/frame counters from the UI, fit the window to its contents and use the preview to fill extra height when resized.
 - Add three-finger desktop, Mission Control and App Exposé swipes using native Dock gestures and commands.

@@ -61,12 +61,20 @@ with tempfile.TemporaryDirectory(prefix="zentouch-release-") as directory:
     verify(app)
     # A packaged helper must fail cleanly instead of falling back to development resources.
     profile = app / "Contents/Resources/exc3200-descriptor.bin"
+    captured_profile = profile.read_bytes()
     profile.unlink()
     result = subprocess.run(
         [str(app / "Contents/Helpers/zentouch-cli"), "self-check"],
         capture_output=True, text=True, timeout=10,
     )
     assert result.returncode == 1 and "controller profile is missing" in result.stderr, result
+    profile.write_bytes(captured_profile)
+    (app / "Contents/Resources/supported-models.json").unlink()
+    result = subprocess.run(
+        [str(app / "Contents/Helpers/zentouch-cli"), "self-check"],
+        capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode == 1 and "model catalog is missing or invalid" in result.stderr, result
     mount = root / "dmg"
     mount.mkdir()
     subprocess.run(
@@ -81,4 +89,4 @@ with tempfile.TemporaryDirectory(prefix="zentouch-release-") as directory:
             assert (mount / name).is_file(), f"Missing release documentation: {name}"
     finally:
         detach_validation_mount(mount)
-print("PASS DMG/ZIP relocation, signatures, resources, architecture, checksums and missing-profile recovery")
+print("PASS DMG/ZIP relocation, signatures, resources, architecture, checksums and missing-profile/catalog recovery")

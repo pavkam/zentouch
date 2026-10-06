@@ -297,11 +297,57 @@ func recoveryRevalidatesPermissionsAndDisplayBeforeResuming() throws {
 }
 
 func displayUUIDSurvivesChangedIDAndRejectsReusedIDs() throws {
-    let awake = ScreenTarget(id: 12, name: "MB16AMTR", uuid: "screen-a")
+    let model = try require(ModelCatalog.current?.supportedModels.first?.model)
+    let awake = ScreenTarget(id: 12, name: model, uuid: "screen-a")
     let reused = ScreenTarget(id: 3, name: "Built-in", uuid: "screen-b")
     try expect(DisplaySelection.resolve(id: 3, uuid: "screen-a", in: [awake, reused]) == awake)
     try expect(DisplaySelection.resolve(id: 3, uuid: "screen-a", in: [reused]) == nil)
     try expect(DisplaySelection.resolve(id: 3, uuid: nil, in: [awake]) == awake)  // Legacy migration.
-    let second = ScreenTarget(id: 13, name: "MB16AMTR", uuid: "screen-c")
+    let second = ScreenTarget(id: 13, name: model, uuid: "screen-c")
     try expect(DisplaySelection.resolve(id: nil, uuid: nil, in: [awake, second]) == nil)
+}
+
+func hardwareLossStopsInputBeforeSessionSnapshotsChange() throws {
+    let f = Fixture()
+    let recovery = SessionRecovery(session: f.session, now: { f.now })
+    recovery.request(true)
+    try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .started)
+    f.beginDrag()
+    // AppKit/HID reported removal, but the session still sees valid geometry
+    // and a connected reader. The authoritative availability must still stop it.
+    try expect(recovery.refresh(available: false, suspended: false, target: nil) == .waiting)
+    try expect(f.session.state == .stopped && f.reader.stops == 1 && recovery.requested)
+    try expect(f.sink.actions.last == .up(Point(x: 300, y: 200)))
+    let count = f.sink.actions.count
+    f.reader.send([Touch(id: 0, x: 0.8, y: 0.8)])
+    try expect(f.sink.actions.count == count)
+    try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .started)
+    try expect(recovery.refresh(available: true, suspended: true, target: f.target) == .idle)
+    try expect(f.session.state == .stopped && f.reader.stops == 2 && recovery.requested)
+}
+
+func attachOrdersRequireBothDisplayAndController() throws {
+    for displayFirst in [true, false] {
+        let f = Fixture()
+        let recovery = SessionRecovery(session: f.session, now: { f.now })
+        recovery.request(true)
+        var display = false
+        var controller = false
+        func refresh() -> SessionRecovery.Result {
+            recovery.refresh(available: display && controller, suspended: false, target: display ? f.target : nil)
+        }
+        try expect(refresh() == .waiting && f.reader.starts == 0)
+        if displayFirst { display = true } else { controller = true }
+        try expect(refresh() == .waiting && f.reader.starts == 0)
+        display = true
+        controller = true
+        try expect(refresh() == .started && f.reader.starts == 1)
+        for _ in 0..<3 { try expect(refresh() == .idle && f.reader.starts == 1) }
+        if displayFirst { controller = false } else { display = false }
+        try expect(refresh() == .waiting && f.session.state == .stopped && recovery.requested)
+        recovery.request(false)
+        display = true
+        controller = true
+        try expect(refresh() == .idle && f.reader.starts == 1)  // Stop prevents reconnection from enabling input.
+    }
 }

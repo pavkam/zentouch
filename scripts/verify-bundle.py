@@ -34,10 +34,12 @@ for relative in (
     "Contents/Helpers/zentouch-cli",
     "Contents/Resources/ZenTouch.icns",
     "Contents/Resources/MenuBarTemplate.png",
+    "Contents/Resources/MenuBarDisconnectedTemplate.png",
     "Contents/Resources/ZenTouchHelp.html",
     "Contents/Resources/THIRD-PARTY-NOTICES.md",
     "Contents/Resources/LICENSE",
     "Contents/Resources/exc3200-descriptor.bin",
+    "Contents/Resources/supported-models.json",
 ):
     if not (app / relative).is_file() or (app / relative).stat().st_size == 0:
         sys.exit(f"Missing bundle content: {relative}")

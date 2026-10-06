@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import AppKit
+import ZenTouchCore
 
 public struct DisplayGeometry: Equatable {
     public let bounds: CGRect
@@ -42,7 +43,9 @@ public struct ScreenTarget: Equatable {
             return ScreenTarget(id: id, name: screen.localizedName, uuid: uuid)
         }
     }
-    public static var zenScreen: ScreenTarget? { all.first { $0.name.contains("MB16AM") } }
+    public var model: TouchDisplayModel? { ModelCatalog.current?.model(matchingDisplayName: name) }
+    public var isSupportedTouchDisplay: Bool { model?.isSupported == true }
+    public static var supportedTouchScreen: ScreenTarget? { DisplaySelection.resolve(id: nil, uuid: nil, in: all) }
 }
 
 /// Display IDs can change after monitor sleep. A saved UUID must never silently
@@ -51,7 +54,7 @@ public enum DisplaySelection {
     public static func resolve(id: UInt32?, uuid: String?, in targets: [ScreenTarget]) -> ScreenTarget? {
         if let uuid { return targets.first { $0.uuid == uuid } }
         if let id, let exact = targets.first(where: { $0.id == id }) { return exact }
-        let screens = targets.filter { $0.name.contains("MB16AM") }
+        let screens = targets.filter(\.isSupportedTouchDisplay)
         return screens.count == 1 ? screens.first : nil
     }
 }

@@ -27,6 +27,10 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     private lazy var recovery = SessionRecovery(session: session)
     private var dockTrace: DockSwipeTrace?
     private var isTerminating = false
+    private var environmentRefreshScheduled = false
+    private var pendingEnvironmentReasons: Set<String> = []
+    private var environmentRefreshCounts: [String: Int] = [:]
+    private var lastHardwareState: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         diagnostics.record("app.didLaunch", ["presentation": "menuBar"])
@@ -84,6 +88,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     }
 
     private func configureSession() {
+        reader.onDevicesChanged = { [weak self] in self?.scheduleEnvironmentRefresh(reason: "touchController") }
         session.onFrame = { [weak self] frame in
             self?.latestFrame = frame
             self?.latestFrameAt = ProcessInfo.processInfo.systemUptime
@@ -192,7 +197,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     private func refresh(allowResume: Bool = true) {
         guard !isTerminating else { return }
         targets = ScreenTarget.all
-        controllerAvailable = !reader.devices().isEmpty
+        controllerAvailable = reader.hasSupportedController
         let permissions = PermissionState.current
         if permissions != lastPermissions {
             lastPermissions = permissions
@@ -206,7 +211,8 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         let target = preferences.selectedTarget(in: targets)
         if allowResume {
             let result = recovery.refresh(
-                available: permissions.canBridge && controllerAvailable && target?.geometry?.supported == true,
+                available: ModelCatalog.current != nil && permissions.canBridge && controllerAvailable
+                    && target?.geometry?.supported == true,
                 suspended: suspended, target: target, pinch: preferences.experimentalPinch,
                 swipes: preferences.threeFingerSwipes)
             switch result {
@@ -230,6 +236,23 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         updatePresentation()
     }
 
+    private func scheduleEnvironmentRefresh(reason: String) {
+        guard !isTerminating else { return }
+        pendingEnvironmentReasons.insert(reason)
+        guard !environmentRefreshScheduled else { return }
+        environmentRefreshScheduled = true
+        // Let AppKit/HID finish updating their snapshots before enumerating.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.isTerminating else { return }
+            self.environmentRefreshScheduled = false
+            let reasons = self.pendingEnvironmentReasons.sorted()
+            self.pendingEnvironmentReasons.removeAll()
+            for reason in reasons { self.environmentRefreshCounts[reason, default: 0] += 1 }
+            diagnostics.record("app.environment.changed", ["reasons": reasons])
+            self.refresh()
+        }
+    }
+
     private func setMessage(_ value: String) {
         if message != value {
             message = value
@@ -240,16 +263,53 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     private func updatePresentation() {
         let permissions = PermissionState.current
         let selected = preferences.selectedTarget(in: targets)
+        let geometry = selected?.geometry
+        let targetAvailable = ModelCatalog.current != nil && geometry?.supported == true
+        let hardwareState: String
+        let unavailableReason: String?
+        if ModelCatalog.current == nil {
+            hardwareState = "catalogUnavailable"
+            unavailableReason = "ZenTouch's model catalog is missing or invalid. Reinstall the app."
+        } else if selected == nil {
+            hardwareState = "displayMissing"
+            unavailableReason =
+                preferences.displayID != nil
+                ? "The selected ZenScreen display is not connected."
+                : "Connect your ZenScreen and select its display."
+        } else if geometry == nil {
+            hardwareState = "displayUnavailable"
+            unavailableReason = "The selected display is asleep or disconnected."
+        } else if !targetAvailable {
+            hardwareState = "displayUnsupported"
+            unavailableReason = "Set the selected display to 0° rotation before enabling touch input."
+        } else if !controllerAvailable {
+            hardwareState = "controllerMissing"
+            unavailableReason = "No supported USB touch controller is connected."
+        } else {
+            hardwareState = "available"
+            unavailableReason = nil
+        }
+        if hardwareState != lastHardwareState {
+            lastHardwareState = hardwareState
+            diagnostics.record(
+                "app.hardware.changed",
+                [
+                    "state": hardwareState, "displayID": selected?.id ?? 0,
+                    "displayAvailable": targetAvailable, "controllerAvailable": controllerAvailable,
+                ])
+        }
         indicators.configure(
             enabled: preferences.showTouchIndicators, target: selected, active: session.state == .running(.input))
         menuBar?.update(
-            state: session.state, permissions: permissions, targetAvailable: selected?.geometry?.supported == true,
-            controllerAvailable: controllerAvailable, inputRequested: recovery.requested)
+            state: session.state, permissions: permissions, targetAvailable: targetAvailable,
+            controllerAvailable: controllerAvailable, inputRequested: recovery.requested,
+            suspended: suspended, unavailableReason: unavailableReason)
         settings?.update(
             state: session.state, permissions: permissions, targets: targets, selected: selected,
             controllerAvailable: controllerAvailable, experimentalPinch: preferences.experimentalPinch,
             threeFingerSwipes: preferences.threeFingerSwipes, showTouchIndicators: preferences.showTouchIndicators,
-            inputRequested: recovery.requested, message: message
+            inputRequested: recovery.requested, targetAvailable: targetAvailable, suspended: suspended,
+            message: unavailableReason ?? message
         )
     }
     private func openPrivacy(input: Bool) {
@@ -297,6 +357,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 guard let self else { return }
                 self.suspension.insert(reason)
                 self.session.stop(reason: "Touch input paused while the Mac sleeps or locks.")
+                self.updatePresentation()
             }
         }
         let resumes: [(Notification.Name, SuspensionReasons)] = [
@@ -317,7 +378,9 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 self.refresh()
             }
         }
-        observe(.default, NSApplication.didChangeScreenParametersNotification) { [weak self] in self?.refresh() }
+        observe(.default, NSApplication.didChangeScreenParametersNotification) { [weak self] in
+            self?.scheduleEnvironmentRefresh(reason: "displays")
+        }
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -341,6 +404,10 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
     /// Inspects only our own view tree and lifecycle, without accessing other apps.
     private func runSmokeTest(output: URL) {
         showSettings()
+        let previousScreenRefreshes = environmentRefreshCounts["displays", default: 0]
+        let previousControllerRefreshes = environmentRefreshCounts["touchController", default: 0]
+        NotificationCenter.default.post(name: NSApplication.didChangeScreenParametersNotification, object: NSApp)
+        reader.onDevicesChanged?()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             guard let self, let window = self.settings?.window, let root = window.contentView else { return }
             root.layoutSubtreeIfNeeded()
@@ -374,8 +441,80 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 inspect(root)
             }
             window.setFrame(originalFrame, display: true)
+            var hardwareChecks: [String: Bool] = [:]
+            hardwareChecks["modelCatalogAvailable"] = ModelCatalog.current?.supportedModels.isEmpty == false
+            let testTarget = ScreenTarget(
+                id: 0, name: ModelCatalog.current?.supportedModels.first?.model ?? "Synthetic Touch Display")
+            let granted = PermissionState(inputMonitoring: true, accessibility: true, eventPosting: true)
+            func presentHardware(
+                display: Bool, controller: Bool, requested: Bool = false,
+                state: SessionState = .stopped, permissions: PermissionState? = nil, suspended: Bool = false
+            ) {
+                self.menuBar?.update(
+                    state: state, permissions: permissions ?? granted, targetAvailable: display,
+                    controllerAvailable: controller, inputRequested: requested, suspended: suspended)
+                self.settings?.update(
+                    state: state, permissions: permissions ?? granted,
+                    targets: display ? [testTarget] : [ScreenTarget(id: 1, name: "Built-in Retina Display")],
+                    selected: display ? testTarget : nil, controllerAvailable: controller,
+                    experimentalPinch: false, threeFingerSwipes: true, showTouchIndicators: true,
+                    inputRequested: requested, targetAvailable: display, suspended: suspended,
+                    message: "Hardware state check.")
+            }
+            func touchOptionsDisabled() -> Bool {
+                self.settings?.displaySelectionEnabled == false && self.settings?.gestureOptionsEnabled == false
+                    && self.settings?.touchIndicatorsEnabled == false
+            }
+            presentHardware(display: false, controller: false)
+            hardwareChecks["disconnectedIconAndDisabledControls"] =
+                self.menuBar?.hasDisconnectedIcon == true
+                && self.menuBar?.canStart == false && self.settings?.canStart == false && touchOptionsDisabled()
+            presentHardware(display: true, controller: false)
+            hardwareChecks["displayWithoutUSBIsUnavailable"] =
+                self.menuBar?.hasDisconnectedIcon == true
+                && self.menuBar?.canStart == false && self.settings?.canStart == false && touchOptionsDisabled()
+            presentHardware(display: false, controller: true)
+            hardwareChecks["USBWithoutSelectedDisplayIsUnavailable"] =
+                self.menuBar?.hasDisconnectedIcon == true
+                && self.menuBar?.canStart == false && self.settings?.canStart == false && touchOptionsDisabled()
+            presentHardware(display: true, controller: true)
+            hardwareChecks["reattachRestoresIconAndControls"] =
+                self.menuBar?.hasDisconnectedIcon == false
+                && self.menuBar?.canStart == true && self.settings?.canStart == true
+                && self.settings?.displaySelectionEnabled == true && self.settings?.gestureOptionsEnabled == true
+                && self.settings?.touchIndicatorsEnabled == true
+            presentHardware(display: true, controller: true, requested: true, state: .running(.input))
+            hardwareChecks["runningKeepsLiveIndicatorToggle"] =
+                self.menuBar?.hasDisconnectedIcon == false
+                && self.menuBar?.requestedInputCanBeStopped == true && self.settings?.canStop == true
+                && self.settings?.displaySelectionEnabled == false && self.settings?.gestureOptionsEnabled == false
+                && self.settings?.touchIndicatorsEnabled == true
+            let denied = PermissionState(inputMonitoring: false, accessibility: false, eventPosting: false)
+            presentHardware(display: true, controller: true, permissions: denied)
+            hardwareChecks["connectedStartStillRequiresPermissions"] =
+                self.menuBar?.hasDisconnectedIcon == false
+                && self.menuBar?.canStart == false && self.settings?.canStart == false
+            presentHardware(display: true, controller: true, suspended: true)
+            hardwareChecks["sleepDisablesStartAndTouchOptions"] =
+                self.menuBar?.canStart == false
+                && self.settings?.canStart == false && touchOptionsDisabled()
+            presentHardware(display: false, controller: false, requested: true)
+            hardwareChecks["detachPreservesStopWhileDisablingTouchOptions"] =
+                self.menuBar?.hasDisconnectedIcon == true
+                && self.menuBar?.requestedInputCanBeStopped == true && self.settings?.canStop == true
+                && touchOptionsDisabled()
+            hardwareChecks["displayNotificationRefreshes"] =
+                self.environmentRefreshCounts["displays", default: 0]
+                > previousScreenRefreshes
+            hardwareChecks["controllerNotificationRefreshes"] =
+                self.environmentRefreshCounts["touchController", default: 0]
+                > previousControllerRefreshes
             var overlayChecks: [String: Bool] = [:]
-            if let target = self.preferences.selectedTarget(in: ScreenTarget.all) {
+            // Synthetic rendering can use an awake display without a ZenScreen.
+            // Production indicators still require the selected input session.
+            if let target = self.preferences.selectedTarget(in: ScreenTarget.all).flatMap({
+                $0.geometry?.supported == true ? $0 : nil
+            }) ?? ScreenTarget.all.first(where: { $0.geometry?.supported == true }) {
                 var clock = 0.0
                 let overlay = TouchIndicatorOverlay(now: { clock })
                 let keyWindow = NSApp.keyWindow
@@ -424,7 +563,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 state: .stopped, permissions: .current, targets: [], selected: nil,
                 controllerAvailable: false, experimentalPinch: false, threeFingerSwipes: true,
                 showTouchIndicators: false,
-                inputRequested: true, message: "Waiting for the controller.")
+                inputRequested: true, targetAvailable: false, message: "Waiting for the controller.")
             let report: [String: Any] = [
                 "name": AppIdentity.name, "version": AppIdentity.version,
                 "bundleID": Bundle.main.bundleIdentifier ?? "",
@@ -439,8 +578,11 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 "ambiguousViews": ambiguous, "clippedViews": clipped,
                 "contentBottomPadding": bottomPadding,
                 "touchIndicatorChecks": overlayChecks,
+                "hardwareAvailabilityChecks": hardwareChecks,
                 "appIconPresent": Bundle.main.url(forResource: "ZenTouch", withExtension: "icns") != nil,
                 "menuIconPresent": Bundle.main.url(forResource: "MenuBarTemplate", withExtension: "png") != nil,
+                "disconnectedMenuIconPresent": Bundle.main.url(
+                    forResource: "MenuBarDisconnectedTemplate", withExtension: "png") != nil,
             ]
             do {
                 let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])

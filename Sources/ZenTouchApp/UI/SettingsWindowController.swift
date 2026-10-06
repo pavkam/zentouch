@@ -7,6 +7,10 @@ import ZenTouchMac
 
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     var canStop: Bool { toggle.title == "Stop Touch Input" && toggle.isEnabled }
+    var canStart: Bool { toggle.title == "Start Touch Input" && toggle.isEnabled }
+    var displaySelectionEnabled: Bool { displays.isEnabled }
+    var gestureOptionsEnabled: Bool { pinch.isEnabled && swipes.isEnabled }
+    var touchIndicatorsEnabled: Bool { indicators.isEnabled }
     private let inputLabel = NSTextField(labelWithString: "")
     private let accessibilityLabel = NSTextField(labelWithString: "")
     private let inputButton = NSButton(title: "Allow Input Monitoring", target: nil, action: nil)
@@ -157,7 +161,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     func update(
         state: SessionState, permissions: PermissionState, targets: [ScreenTarget], selected: ScreenTarget?,
         controllerAvailable: Bool, experimentalPinch: Bool, threeFingerSwipes: Bool, showTouchIndicators: Bool,
-        inputRequested: Bool,
+        inputRequested: Bool, targetAvailable: Bool, suspended: Bool = false,
         message: String
     ) {
         inputLabel.stringValue =
@@ -183,15 +187,19 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         } else {
             displays.selectItem(at: 0)
         }
-        displays.isEnabled = !state.isRunning
-        pinch.isEnabled = !state.isRunning
+        let hardwareAvailable = targetAvailable && controllerAvailable
+        displays.isEnabled =
+            !state.isRunning && controllerAvailable && !suspended
+            && (targetAvailable || targets.contains(where: { $0.isSupportedTouchDisplay }))
+        pinch.isEnabled = !state.isRunning && hardwareAvailable && !suspended
         pinch.state = experimentalPinch ? .on : .off
-        swipes.isEnabled = !state.isRunning
+        swipes.isEnabled = !state.isRunning && hardwareAvailable && !suspended
         swipes.state = threeFingerSwipes ? .on : .off
         indicators.state = showTouchIndicators ? .on : .off
+        indicators.isEnabled = hardwareAvailable && !suspended
         let canStop = state.isRunning || inputRequested
         toggle.title = canStop ? "Stop Touch Input" : "Start Touch Input"
-        toggle.isEnabled = canStop || (permissions.canBridge && selected != nil && controllerAvailable)
+        toggle.isEnabled = canStop || (permissions.canBridge && hardwareAvailable && !suspended)
         status.stringValue = message
     }
     func updatePreview(frame: TouchFrame) {

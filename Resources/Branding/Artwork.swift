@@ -51,7 +51,7 @@ func text(_ value: String, x: CGFloat, y: CGFloat, size: CGFloat, color: NSColor
 func gradient(_ path: NSBezierPath, _ start: NSColor, _ end: NSColor) {
     NSGradient(starting: start, ending: end)?.draw(in: path, angle: -55)
 }
-func icon(template: Bool) {
+func icon(template: Bool, disconnected: Bool = false) {
     let screen = rect(230, 360, 564, 390, 48)
     if !template {
         let tile = rect(96, 96, 832, 832, 184)
@@ -82,8 +82,17 @@ func icon(template: Bool) {
         line([NSPoint(x: 340, y: 470), NSPoint(x: 430, y: 550)], color: mint.withAlphaComponent(0.24), width: 36)
         line([NSPoint(x: 588, y: 558), NSPoint(x: 678, y: 638)], color: coral.withAlphaComponent(0.24), width: 36)
     }
-    contact(NSPoint(x: 430, y: 550), radius: template ? 45 : 31, color: template ? .black : mint, rings: !template)
-    contact(NSPoint(x: 678, y: 638), radius: template ? 45 : 31, color: template ? .black : coral, rings: !template)
+    if disconnected {
+        let slash = [NSPoint(x: 190, y: 230), NSPoint(x: 844, y: 820)]
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current?.cgContext.setBlendMode(.clear)
+        line(slash, color: .black, width: 130)
+        NSGraphicsContext.restoreGraphicsState()
+        line(slash, color: .black, width: 62)
+    } else {
+        contact(NSPoint(x: 430, y: 550), radius: template ? 45 : 31, color: template ? .black : mint, rings: !template)
+        contact(NSPoint(x: 678, y: 638), radius: template ? 45 : 31, color: template ? .black : coral, rings: !template)
+    }
 }
 func render(width: Int, height: Int, drawing: () -> Void) throws -> Data {
     guard
@@ -103,12 +112,12 @@ func render(width: Int, height: Int, drawing: () -> Void) throws -> Data {
     }
     return png
 }
-func iconPNG(size: Int, template: Bool = false) throws -> Data {
+func iconPNG(size: Int, template: Bool = false, disconnected: Bool = false) throws -> Data {
     try render(width: size, height: size) {
         let transform = NSAffineTransform()
         transform.scale(by: CGFloat(size) / 1024)
         transform.concat()
-        icon(template: template)
+        icon(template: template, disconnected: disconnected)
     }
 }
 for base in [16, 32, 128, 256, 512] {
@@ -118,6 +127,8 @@ for base in [16, 32, 128, 256, 512] {
     }
 }
 try iconPNG(size: 36, template: true).write(to: destination.appendingPathComponent("MenuBarTemplate.png"))
+try iconPNG(size: 36, template: true, disconnected: true).write(
+    to: destination.appendingPathComponent("MenuBarDisconnectedTemplate.png"))
 try iconPNG(size: 1024).write(to: destination.appendingPathComponent("app-icon.png"))
 try render(width: 1600, height: 640) {
     gradient(
