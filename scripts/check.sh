@@ -17,6 +17,8 @@ assert not os.path.samefile(binary, pathlib.Path(binary_directory) / 'ZenTouch')
 for argument in ('--help', '--version'):
     result = subprocess.run([str(binary), argument], capture_output=True, text=True, timeout=10)
     assert result.returncode == 0 and 'ZenTouch' in result.stdout, (argument, result)
+result = subprocess.run([str(binary), 'models'], capture_output=True, text=True, timeout=10)
+assert result.returncode == 0 and 'verified' in result.stdout and 'unverified' in result.stdout, result
 result = subprocess.run([str(binary), 'not-a-command'], capture_output=True, text=True, timeout=10)
 assert result.returncode != 0 and 'Unknown command' in result.stderr, result
 print('PASS CLI help, version and invalid-command exit status')

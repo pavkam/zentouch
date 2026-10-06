@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "researchedAt": "2026-10-06",
+  "manufacturer": "ASUS",
+  "models": [
+    {
+      "model": "MB16AMTR",
+      "family": "ZenScreen Touch",
+      "displayNames": [
+        "MB16AMTR"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/displays-desktops/monitors/zenscreen/asus-zenscreen-touch-mb16amtr/",
+      "status": "verified",
+      "controllerProfile": "exc3200-2505"
+    },
+    {
+      "model": "MB16AMT",
+      "family": "ZenScreen Touch",
+      "displayNames": [
+        "MB16AMT"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/us/displays-desktops/monitors/portable/zenscreen-touch-mb16amt/",
+      "status": "unverified"
+    },
+    {
+      "model": "MB16AHT",
+      "family": "ZenScreen Touch",
+      "displayNames": [
+        "MB16AHT"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/displays-desktops/monitors/zenscreen/zenscreen-touch-mb16aht/",
+      "status": "unverified"
+    },
+    {
+      "model": "MB14AHD",
+      "family": "ZenScreen Ink",
+      "displayNames": [
+        "MB14AHD"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/displays-desktops/monitors/zenscreen/zenscreen-ink-mb14ahd/",
+      "status": "unverified"
+    },
+    {
+      "model": "PA148CTV",
+      "family": "ProArt",
+      "displayNames": [
+        "PA148CTV"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/global/support/faq/1047313/",
+      "status": "unverified"
+    },
+    {
+      "model": "PA169CDV",
+      "family": "ProArt",
+      "displayNames": [
+        "PA169CDV"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/displays-desktops/monitors/proart/proart-display-pa169cdv/",
+      "status": "unverified"
+    },
+    {
+      "model": "BE24ECSBT",
+      "family": "Business",
+      "displayNames": [
+        "BE24ECSBT"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/displays-desktops/monitors/business/be24ecsbt/",
+      "status": "unverified"
+    },
+    {
+      "model": "VT229H",
+      "family": "Touch",
+      "displayNames": [
+        "VT229H"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/global/support/faq/1047313/",
+      "status": "unverified"
+    },
+    {
+      "model": "VT168HR",
+      "family": "Touch",
+      "displayNames": [
+        "VT168HR"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/displays-desktops/monitors/touch/vt168hr/",
+      "status": "unverified"
+    },
+    {
+      "model": "VT168H",
+      "family": "Touch (legacy)",
+      "displayNames": [
+        "VT168H"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/global/support/faq/1047313/",
+      "status": "unverified"
+    },
+    {
+      "model": "VT168N",
+      "family": "Touch (legacy)",
+      "displayNames": [
+        "VT168N"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/global/support/faq/1047313/",
+      "status": "unverified"
+    },
+    {
+      "model": "VT207N",
+      "family": "Touch (legacy)",
+      "displayNames": [
+        "VT207N"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/event/2016/productguide/id/Product%20Guide%20monitor_projector%202016_issue01.pdf",
+      "status": "unverified"
+    },
+    {
+      "model": "XG129C",
+      "family": "ROG Strix",
+      "displayNames": [
+        "XG129C"
+      ],
+      "touchPoints": 10,
+      "source": "https://rog.asus.com/au/monitors/accessories/rog-strix-xg129c/",
+      "status": "unverified"
+    }
+  ]
+}

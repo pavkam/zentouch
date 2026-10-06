@@ -14,6 +14,7 @@ public struct ReportStatistics: Equatable {
 }
 
 public protocol TouchReading: AnyObject {
+    var isConnected: Bool { get }
     var onFrame: ((TouchFrame) -> Void)? { get set }
     var onReport: ((ReportStatistics) -> Void)? { get set }
     var onDisconnect: (() -> Void)? { get set }

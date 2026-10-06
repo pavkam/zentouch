@@ -6,41 +6,45 @@ import ZenTouchCore
 import ZenTouchMac
 
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
+    var canStop: Bool { toggle.title == "Stop Touch Input" && toggle.isEnabled }
+    var canStart: Bool { toggle.title == "Start Touch Input" && toggle.isEnabled }
+    var displaySelectionEnabled: Bool { displays.isEnabled }
+    var gestureOptionsEnabled: Bool { pinch.isEnabled && swipes.isEnabled }
+    var touchIndicatorsEnabled: Bool { indicators.isEnabled }
     private let inputLabel = NSTextField(labelWithString: "")
     private let accessibilityLabel = NSTextField(labelWithString: "")
     private let inputButton = NSButton(title: "Allow Input Monitoring", target: nil, action: nil)
     private let accessibilityButton = NSButton(title: "Allow Accessibility", target: nil, action: nil)
     private let displays = NSPopUpButton()
     private let pinch = NSButton(checkboxWithTitle: "Enable experimental pinch", target: nil, action: nil)
-    private let enable = NSButton(title: "Enable Touch Input", target: nil, action: nil)
-    private let test = NSButton(title: "Test Finger Contacts", target: nil, action: nil)
-    private let stop = NSButton(title: "Stop", target: nil, action: nil)
+    private let swipes = NSButton(checkboxWithTitle: "Enable three-finger swipes", target: nil, action: nil)
+    private let indicators = NSButton(checkboxWithTitle: "Show touch indicators", target: nil, action: nil)
+    private let toggle = NSButton(title: "Start Touch Input", target: nil, action: nil)
+    private let logs = NSButton(title: "Open Logs Folder", target: nil, action: nil)
     private let status = NSTextField(wrappingLabelWithString: "Ready.")
-    private let counts = NSTextField(labelWithString: "0 contacts · 0 reports · 0 frames")
     private let canvas = TouchCanvas()
     private var targets: [ScreenTarget] = []
-    var onEnable: (() -> Void)?
-    var onTest: (() -> Void)?
-    var onStop: (() -> Void)?
+    var onToggle: (() -> Void)?
     var onInputSettings: (() -> Void)?
     var onAccessibilitySettings: (() -> Void)?
     var onSelectDisplay: ((ScreenTarget?) -> Void)?
     var onPinchChange: ((Bool) -> Void)?
+    var onSwipesChange: ((Bool) -> Void)?
+    var onIndicatorsChange: ((Bool) -> Void)?
     var onLogs: (() -> Void)?
 
     init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 580, height: 740),
+            contentRect: NSRect(x: 0, y: 0, width: 580, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered, defer: false)
         window.title = "ZenTouch Settings"
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 560, height: 740)
         window.setFrameAutosaveName("ZenTouchSettingsWindow")
         super.init(window: window)
         window.delegate = self
-        window.center()
         buildContent(in: window)
+        window.center()
     }
     required init?(coder: NSCoder) { nil }
 
@@ -48,6 +52,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         guard let root = window.contentView else { return }
         let content = NSStackView()
         content.orientation = .vertical
+        content.distribution = .fill
         content.alignment = .leading
         content.spacing = 12
         content.translatesAutoresizingMaskIntoConstraints = false
@@ -56,7 +61,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             content.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
             content.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
             content.topAnchor.constraint(equalTo: root.topAnchor, constant: 24),
-            content.bottomAnchor.constraint(lessThanOrEqualTo: root.bottomAnchor, constant: -24),
+            content.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -24),
         ])
         func add(_ view: NSView) {
             content.addArrangedSubview(view)
@@ -83,6 +88,15 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         displays.action = #selector(selectDisplay)
         displays.setAccessibilityLabel("Display receiving ZenScreen touch input")
         add(displays)
+        swipes.target = self
+        swipes.action = #selector(changeSwipes)
+        add(swipes)
+        let swipeNote = NSTextField(
+            wrappingLabelWithString:
+                "Left/right: desktops. Up: Mission Control. Down: App Exposé. Uses a private macOS gesture adapter.")
+        swipeNote.font = .systemFont(ofSize: 11)
+        swipeNote.textColor = .secondaryLabelColor
+        add(swipeNote)
         pinch.target = self
         pinch.action = #selector(changePinch)
         add(pinch)
@@ -91,23 +105,23 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         pinchNote.font = .systemFont(ofSize: 11)
         pinchNote.textColor = .secondaryLabelColor
         add(pinchNote)
-        enable.target = self
-        enable.action = #selector(enableInput)
-        test.target = self
-        test.action = #selector(testContacts)
-        stop.target = self
-        stop.action = #selector(stopInput)
-        let controls = NSStackView(views: [enable, test, stop])
-        controls.spacing = 8
-        add(controls)
+        indicators.target = self
+        indicators.action = #selector(changeIndicators)
+        add(indicators)
+        toggle.target = self
+        toggle.action = #selector(toggleInput)
+        toggle.bezelStyle = .rounded
+        toggle.controlSize = .large
+        toggle.font = .systemFont(ofSize: 13, weight: .semibold)
+        toggle.contentTintColor = .controlAccentColor
+        add(toggle)
         status.font = .systemFont(ofSize: 12)
         status.setAccessibilityRole(.staticText)
         add(status)
-        counts.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-        counts.textColor = .secondaryLabelColor
-        add(counts)
         add(canvas)
-        canvas.heightAnchor.constraint(equalToConstant: 170).isActive = true
+        canvas.setContentHuggingPriority(NSLayoutConstraint.Priority(1), for: .vertical)
+        canvas.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        canvas.heightAnchor.constraint(greaterThanOrEqualToConstant: 150).isActive = true
         let footer = NSTextField(
             wrappingLabelWithString:
                 "ZenTouch stays in the menu bar when this window closes. Stop pauses input; Quit restores the controller and exits."
@@ -115,8 +129,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         footer.font = .systemFont(ofSize: 11)
         footer.textColor = .secondaryLabelColor
         add(footer)
-        let logs = NSButton(title: "Open Logs Folder", target: self, action: #selector(showLogs))
+        logs.target = self
+        logs.action = #selector(showLogs)
         content.addArrangedSubview(logs)
+        root.layoutSubtreeIfNeeded()
+        let compactHeight = content.fittingSize.height + 48
+        window.setContentSize(NSSize(width: root.bounds.width, height: compactHeight))
+        window.minSize =
+            window.frameRect(
+                forContentRect: NSRect(x: 0, y: 0, width: 560, height: compactHeight)
+            ).size
     }
     private func label(_ title: String, weight: NSFont.Weight) -> NSTextField {
         let label = NSTextField(labelWithString: title)
@@ -138,7 +160,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
     func update(
         state: SessionState, permissions: PermissionState, targets: [ScreenTarget], selected: ScreenTarget?,
-        controllerAvailable: Bool, experimentalPinch: Bool, message: String
+        controllerAvailable: Bool, experimentalPinch: Bool, threeFingerSwipes: Bool, showTouchIndicators: Bool,
+        inputRequested: Bool, targetAvailable: Bool, suspended: Bool = false,
+        message: String
     ) {
         inputLabel.stringValue =
             permissions.inputMonitoring ? "✓ Input Monitoring granted" : "○ Input Monitoring required"
@@ -163,24 +187,27 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         } else {
             displays.selectItem(at: 0)
         }
-        displays.isEnabled = !state.isRunning
-        pinch.isEnabled = !state.isRunning
+        let hardwareAvailable = targetAvailable && controllerAvailable
+        displays.isEnabled =
+            !state.isRunning && controllerAvailable && !suspended
+            && (targetAvailable || targets.contains(where: { $0.isSupportedTouchDisplay }))
+        pinch.isEnabled = !state.isRunning && hardwareAvailable && !suspended
         pinch.state = experimentalPinch ? .on : .off
-        enable.isEnabled = !state.isRunning && permissions.canBridge && selected != nil && controllerAvailable
-        test.isEnabled = !state.isRunning && permissions.inputMonitoring && controllerAvailable
-        stop.isEnabled = state.isRunning
+        swipes.isEnabled = !state.isRunning && hardwareAvailable && !suspended
+        swipes.state = threeFingerSwipes ? .on : .off
+        indicators.state = showTouchIndicators ? .on : .off
+        indicators.isEnabled = hardwareAvailable && !suspended
+        let canStop = state.isRunning || inputRequested
+        toggle.title = canStop ? "Stop Touch Input" : "Start Touch Input"
+        toggle.isEnabled = canStop || (permissions.canBridge && hardwareAvailable && !suspended)
         status.stringValue = message
     }
-    func updatePreview(frame: TouchFrame, statistics: ReportStatistics) {
+    func updatePreview(frame: TouchFrame) {
         guard window?.isVisible == true else { return }
         canvas.touches = frame.touches
         canvas.setAccessibilityValue("\(frame.touches.count) finger contacts")
-        counts.stringValue =
-            "\(frame.touches.count) contacts · \(statistics.reports) reports · \(statistics.frames) frames"
     }
-    @objc private func enableInput() { onEnable?() }
-    @objc private func testContacts() { onTest?() }
-    @objc private func stopInput() { onStop?() }
+    @objc private func toggleInput() { onToggle?() }
     @objc private func allowInput() { onInputSettings?() }
     @objc private func allowAccessibility() { onAccessibilitySettings?() }
     @objc private func selectDisplay() {
@@ -188,5 +215,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         onSelectDisplay?(targets.indices.contains(index) ? targets[index] : nil)
     }
     @objc private func changePinch() { onPinchChange?(pinch.state == .on) }
+    @objc private func changeSwipes() { onSwipesChange?(swipes.state == .on) }
+    @objc private func changeIndicators() { onIndicatorsChange?(indicators.state == .on) }
     @objc private func showLogs() { onLogs?() }
 }

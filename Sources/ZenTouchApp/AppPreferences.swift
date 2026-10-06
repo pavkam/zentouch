@@ -15,6 +15,14 @@ final class AppPreferences {
         get { defaults.bool(forKey: "experimentalPinch") }
         set { defaults.set(newValue, forKey: "experimentalPinch") }
     }
+    var threeFingerSwipes: Bool {
+        get { defaults.object(forKey: "threeFingerSwipes") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "threeFingerSwipes") }
+    }
+    var showTouchIndicators: Bool {
+        get { defaults.bool(forKey: "showTouchIndicators") }
+        set { defaults.set(newValue, forKey: "showTouchIndicators") }
+    }
     var displayID: UInt32? {
         get { (defaults.object(forKey: "selectedDisplayID") as? NSNumber)?.uint32Value }
         set {
@@ -26,7 +34,14 @@ final class AppPreferences {
         }
     }
     func selectedTarget(in targets: [ScreenTarget]) -> ScreenTarget? {
-        if let displayID { return targets.first { $0.id == displayID } }
-        return targets.first { $0.name.contains("MB16AM") }
+        DisplaySelection.resolve(id: displayID, uuid: defaults.string(forKey: "selectedDisplayUUID"), in: targets)
+    }
+    func select(_ target: ScreenTarget?) {
+        displayID = target?.id
+        if let uuid = target?.uuid {
+            defaults.set(uuid, forKey: "selectedDisplayUUID")
+        } else {
+            defaults.removeObject(forKey: "selectedDisplayUUID")
+        }
     }
 }

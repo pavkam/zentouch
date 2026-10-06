@@ -59,7 +59,10 @@ public final class TouchSession {
         self.makeSink = makeSink ?? { EventSink(target: $0, geometry: $1, experimentalPinch: $2) }
     }
 
-    public func start(kind: SessionKind, target: ScreenTarget?, pinch: Bool = false, multitouch: Bool = true) throws {
+    public func start(
+        kind: SessionKind, target: ScreenTarget?, pinch: Bool = false, multitouch: Bool = true,
+        swipes: Bool = true
+    ) throws {
         precondition(Thread.isMainThread)
         guard !state.isRunning else {
             throw ZenError(message: "Touch input is already running. Stop it before starting another session.")
@@ -71,10 +74,13 @@ public final class TouchSession {
         diagnostics.record(
             "session.start",
             [
-                "kind": kind.rawValue, "pinch": pinch, "multitouch": multitouch,
+                "kind": kind.rawValue, "pinch": pinch, "multitouch": multitouch, "swipes": swipes,
                 "target": target?.name ?? "none", "displayID": target?.id ?? 0,
             ])
         if kind == .input {
+            guard ModelCatalog.current != nil else {
+                throw ZenError(message: "ZenTouch's model catalog is missing or invalid. Reinstall the app.")
+            }
             guard permissions.canBridge else {
                 throw ZenError(message: "Allow ZenTouch Accessibility, then reopen it to enable input.")
             }
@@ -87,7 +93,9 @@ public final class TouchSession {
             self.target = target
             initialGeometry = geometry
             sink = makeSink(target, geometry, pinch)
-            engine = GestureEngine(width: geometry.bounds.width, height: geometry.bounds.height, pinchEnabled: pinch)
+            engine = GestureEngine(
+                width: geometry.bounds.width, height: geometry.bounds.height,
+                pinchEnabled: pinch, swipesEnabled: swipes)
         }
         reader.onMultitouchObserved = { [weak self] in
             self?.onStatus?(
@@ -114,7 +122,7 @@ public final class TouchSession {
             self.onStatus?(message)
         }
         reader.onDisconnect = { [weak self] in
-            self?.stop(reason: "Touch controller disconnected. Reconnect it and enable input again.")
+            self?.stop(reason: "Touch controller disconnected. Waiting for it to return.")
         }
         do { try reader.start(seize: kind == .input, multitouch: multitouch) } catch {
             _ = reader.stop()
@@ -139,6 +147,10 @@ public final class TouchSession {
 
     public func poll() {
         guard state.isRunning, validateEnvironment() else { return }
+        guard reader.isConnected else {
+            stop(reason: "Touch controller unavailable. Waiting for it to return.")
+            return
+        }
         let now = environment.now()
         if now - lastHeartbeatAt >= 5 {
             lastHeartbeatAt = now

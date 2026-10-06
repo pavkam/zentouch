@@ -17,7 +17,7 @@ struct ZenTouchCLI {
             "process.start",
             [
                 "mode": args.first ?? "help",
-                "bundle": Bundle.main.bundleIdentifier ?? "cli", "version": "0.3.0", "log": diagnostics.fileURL.path,
+                "bundle": Bundle.main.bundleIdentifier ?? "cli", "version": "0.4.0", "log": diagnostics.fileURL.path,
             ])
         diagnostics.record(
             "process.permissions",
@@ -39,10 +39,20 @@ struct ZenTouchCLI {
             guard args.count == 1, DeviceProfile.descriptor?.count == 559 else {
                 throw ZenError(message: "ZenTouch's controller profile is missing or invalid.")
             }
+            _ = try ModelCatalog.loadBundled()
             print("ZenTouch CLI: controller profile verified (559 bytes)")
+        case "models":
+            guard args.count == 1 else { throw ZenError(message: "models takes no options.") }
+            let catalog = try ModelCatalog.loadBundled()
+            print("Model\tFamily\tZenTouch\tASUS touch points\tASUS source")
+            for model in catalog.models {
+                print(
+                    "\(model.model)\t\(model.family)\t\(model.status.rawValue)\t\(model.touchPoints)\t\(model.source.absoluteString)"
+                )
+            }
         case "--version":
             guard args.count == 1 else { throw ZenError(message: "--version takes no options.") }
-            print("ZenTouch CLI 0.3.0")
+            print("ZenTouch CLI 0.4.0")
         case "help", "--help", "-h":
             printUsage()
         case "inspect":
@@ -92,7 +102,7 @@ struct ZenTouchCLI {
                 }
             }
             try session.start(
-                kind: args[0] == "bridge" ? .input : .contacts, target: ScreenTarget.zenScreen, pinch: pinch,
+                kind: args[0] == "bridge" ? .input : .contacts, target: ScreenTarget.supportedTouchScreen, pinch: pinch,
                 multitouch: multitouch)
             signal(SIGINT, SIG_IGN)
             signal(SIGTERM, SIG_IGN)
@@ -122,9 +132,10 @@ struct ZenTouchCLI {
             ZenTouch CLI: ZenScreen touch bridge
               zentouch-cli self-check                 Verify packaged controller profile
               zentouch-cli inspect                     Inspect device/displays/permissions
+              zentouch-cli models                      List catalog models and verification status
               zentouch-cli capture [--seconds 30]       Read contacts without changing mode
               zentouch-cli capture --multitouch         Temporarily enable multi-touch
-              zentouch-cli bridge [--seconds 30]        Enable touch input on MB16AMTR
+              zentouch-cli bridge [--seconds 30]        Enable input on the supported touchscreen
                 [--experimental-pinch]             Opt into private gesture fields
             """)
     }

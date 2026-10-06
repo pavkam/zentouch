@@ -10,15 +10,15 @@ SPDX-License-Identifier: MIT
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-142536)
 ![Swift 6+](https://img.shields.io/badge/Swift-6%2B-f7a66f)
 
-ZenTouch brings taps, dragging, right-clicks and two-finger scrolling to the **ASUS ZenScreen Touch MB16AMTR** on macOS. It runs in the menu bar. Close Settings and carry on using the screen.
+ZenTouch brings taps, dragging, right-clicks, two-finger scrolling and three-finger swipes to the **ASUS ZenScreen Touch MB16AMTR** on macOS. It runs in the menu bar. Close Settings and carry on using the screen.
 
-The tested controller is **eGalaxTouch EXC3200-2505**, USB **0eef:c000**. ZenTouch verifies its exact HID descriptor before translating input. Clicks, scrolling and operation with Settings closed have been confirmed on the attached Mac running macOS 27. Other controllers need their own verified profile.
+The tested controller is **eGalaxTouch EXC3200-2505**, USB **0eef:c000**. ZenTouch verifies its exact HID descriptor before translating input. Clicks, scrolling, three-finger swipe up opening Mission Control, operation with Settings closed and recovery after a monitor power cycle are confirmed on the attached Mac running macOS 27. Other controllers need their own verified profile.
 
 ## Install
 
 Download an **arm64 preview** from [Releases](https://github.com/pavkam/zentouch/releases), open the DMG and drag ZenTouch into Applications. Keep one installed copy and use that same path when granting permissions.
 
-The release includes a ZIP and SHA-256 manifest too. With both archives and the manifest downloaded into the same folder, verify them with `shasum -a 256 -c ZenTouch-0.3.0-arm64.sha256`.
+The release includes a ZIP and SHA-256 manifest too. With both archives and the manifest downloaded into the same folder, verify them with `shasum -a 256 -c ZenTouch-0.4.0-arm64.sha256`.
 
 Preview binaries are signed with the maintainer's stable local certificate. They are **not Developer ID notarized**; macOS may block opening them. Use Privacy & Security → **Open Anyway** if you choose to run the preview, or build from source with your own signing identity. Never install the disposable packages from CI artifacts over a working app.
 
@@ -49,9 +49,15 @@ The build pins its public fingerprint locally and reuses that key. Updates refus
 1. Connect the ZenScreen's **USB data connection**. Video alone does not carry touch input.
 2. Open ZenTouch, then choose **Settings…** from its menu bar icon.
 3. Allow **Input Monitoring** and **Accessibility** in macOS Settings. Quit and reopen ZenTouch if macOS requests it. The green checks show the grants seen by the running app.
-4. Select the ZenScreen, set display rotation to **0°**, and click **Enable Touch Input**.
+4. Select the ZenScreen, set display rotation to **0°**, and click **Start Touch Input**.
 
-The menu's checked **Active** item means input is running. Click it to stop or resume input. **Quit ZenTouch** stops input and exits; closing Settings keeps it running.
+The menu's checked **Active** item means input is enabled, including while waiting for the screen to wake. Its tooltip shows whether input is running or waiting. Click it to stop or resume input. Settings has one **Start Touch Input / Stop Touch Input** button and a live contact preview. **Quit ZenTouch** stops input and exits; closing Settings keeps it running.
+
+When the selected screen or its USB touch controller is unavailable, the menu bar shows a slashed screen icon. Start and touch options are disabled, and Settings explains what is missing. Attach/detach notifications update the app immediately, with a periodic check as a fallback. Reconnecting restores the controls and resumes input if **Active** was enabled. Stop remains available while waiting so you can cancel automatic resuming; Settings, permissions, logs, help and Quit remain available.
+
+Enable **Show touch indicators** in Settings to display a pulsating teal ring around each finger on the ZenScreen. The rings follow your touches, let clicks pass through and work with Settings closed. You can change this option while input is running. They disappear on lift, Stop or disconnection; macOS Reduce Motion uses steady rings. The option is saved and off by default.
+
+Model identification comes from one [model catalog](docs/supported-models.md), with ASUS sources and explicit verification status. ASUS advertising a touchscreen does not establish ZenTouch compatibility; additional entries stay unverified until their controller and input behavior are tested.
 
 ![One finger taps and drags; two fingers move together to scroll](docs/assets/gestures.png)
 
@@ -62,13 +68,18 @@ The menu's checked **Active** item means input is running. Click it to stop or r
 | Move two fingers together | Scroll vertically or horizontally |
 | Two-finger tap | Right-click |
 | Hold one finger still, then lift | Right-click |
+| Three-finger swipe left/right | Switch desktops or full-screen apps |
+| Three-finger swipe up | Mission Control |
+| Three-finger swipe down | App Exposé |
 | Pinch | Experimental, opt-in; app compatibility remains unverified |
 
-ZenTouch remembers the selected display and whether input was enabled. Sleep or locking pauses it; wake resumes it when the display and permissions are available. USB disconnects, permission loss and display changes stop input. Check Settings and enable it again.
+**Three-finger swipes** are enabled by default. Place three fingers, move them together, then lift. To disable them, stop input, uncheck **Enable three-finger swipes** in Settings, and resume. This is separate from macOS’s built-in trackpad settings; it does not implement three-finger dragging.
+
+ZenTouch remembers the selected display and whether input was enabled. Sleep or locking pauses it; wake resumes it when the display and permissions are available. Monitor power saving, USB disconnects, permission loss and display changes pause input. ZenTouch keeps watching for the controller and automatically reopens it when the selected screen and grants return. Failed reopen attempts back off to at most one every 15 seconds. Explicit Stop keeps input off.
 
 ## If something doesn't work
 
-- **No finger contacts:** check the USB data cable and Input Monitoring. Choose **Test Finger Contacts…** to preview contacts without sending clicks. Click that menu item again, or Stop in Settings, to end the test.
+- **No finger contacts:** check the USB data cable and Input Monitoring. With touch input running, Settings shows contacts in its preview. Open the logs folder for controller reports and decoding errors.
 - **Contacts appear but input doesn't:** check Accessibility and the selected display. The permission checks refresh while the app runs.
 - **App missing from Privacy & Security:** use **+** to add the installed ZenTouch app. Keep the same signing identity and installation path for updates.
 - **Pointer alignment changed:** stop input, select the correct screen and keep rotation at 0°. Display reconfiguration intentionally stops the current session.
@@ -78,14 +89,14 @@ ZenTouch remembers the selected display and whether input was enabled. Sleep or 
 
 ## Scope
 
-ZenTouch translates touch reports into public macOS mouse and scroll events. It does not currently provide complete Apple trackpad behavior or produce native AppKit direct-touch events. Experimental pinch uses isolated undocumented fields. Six-to-ten-contact continuation is covered synthetically and still needs live verification.
+ZenTouch translates touch reports into public macOS mouse and scroll events. It does not currently provide complete Apple trackpad behavior or produce native AppKit direct-touch events. Horizontal three-finger swipes send phased Dock gestures through an isolated private adapter, including the raw HID payload required on macOS 27. Vertical swipes invoke the Dock’s native Mission Control/App Exposé command once on lift; they do not animate in step with your fingers. This behavior can change with macOS updates. Pinch also uses undocumented fields. Mission Control is confirmed; desktop switching and App Exposé still need live confirmation. Automated checks verify recognition, cancellation and event encoding. Six-to-ten-contact continuation is covered synthetically and still needs live verification.
 
 This is an independent project, unaffiliated with ASUS or Apple.
 
 ## Development
 
 ```sh
-make check      # Formatting, license/repository checks, builds and 33 behavior checks
+make check      # Formatting, license/repository checks, builds and 51 behavior checks
 make format     # Apply Swift formatting
 make artwork    # Regenerate committed README/icon graphics
 make build      # Build and verify the signed app and diagnostic helper
@@ -96,4 +107,4 @@ There are no external runtime dependencies. CI checks macOS 15 and 26, then veri
 
 See [development and diagnostics](docs/development.md), [the protocol investigation](docs/feasibility.md), [the quality pass](docs/quality-pass.md), [the changelog](CHANGELOG.md) and [contribution guidelines](CONTRIBUTING.md). Questions go in [Discussions](https://github.com/pavkam/zentouch/discussions); bugs go in [Issues](https://github.com/pavkam/zentouch/issues). Security reports use [private reporting](SECURITY.md).
 
-ZenTouch's code and artwork use the [MIT License](LICENSE). The experimental pinch mapping retains its [upstream MIT notice](THIRD-PARTY-NOTICES.md).
+ZenTouch's code and artwork use the [MIT License](LICENSE). The gesture adapters retain their [upstream MIT and ISC notices](THIRD-PARTY-NOTICES.md).

@@ -8,6 +8,7 @@ import pathlib
 import plistlib
 import subprocess
 import tempfile
+import time
 
 repo = pathlib.Path(__file__).resolve().parent.parent
 with (repo / "dist/ZenTouch.app/Contents/Info.plist").open("rb") as stream:
@@ -33,6 +34,25 @@ def verify(app):
     assert arches == [architecture], f"Unexpected release architecture: {arches}"
 
 
+def detach_validation_mount(mount):
+    # macOS may briefly hold a relocated app after signature/resource checks.
+    for attempt in range(3):
+        try:
+            result = subprocess.run(
+                ["hdiutil", "detach", str(mount)], capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode == 0:
+                return
+        except subprocess.TimeoutExpired:
+            pass
+        if attempt < 2:
+            time.sleep(1)
+    # Only our private, read-only validation mount is eligible for forced cleanup.
+    subprocess.run(
+        ["hdiutil", "detach", "-force", str(mount)], check=True, timeout=30, stdout=subprocess.DEVNULL,
+    )
+
+
 with tempfile.TemporaryDirectory(prefix="zentouch-release-") as directory:
     root = pathlib.Path(directory)
     extracted = root / "zip"
@@ -41,12 +61,20 @@ with tempfile.TemporaryDirectory(prefix="zentouch-release-") as directory:
     verify(app)
     # A packaged helper must fail cleanly instead of falling back to development resources.
     profile = app / "Contents/Resources/exc3200-descriptor.bin"
+    captured_profile = profile.read_bytes()
     profile.unlink()
     result = subprocess.run(
         [str(app / "Contents/Helpers/zentouch-cli"), "self-check"],
         capture_output=True, text=True, timeout=10,
     )
     assert result.returncode == 1 and "controller profile is missing" in result.stderr, result
+    profile.write_bytes(captured_profile)
+    (app / "Contents/Resources/supported-models.json").unlink()
+    result = subprocess.run(
+        [str(app / "Contents/Helpers/zentouch-cli"), "self-check"],
+        capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode == 1 and "model catalog is missing or invalid" in result.stderr, result
     mount = root / "dmg"
     mount.mkdir()
     subprocess.run(
@@ -60,5 +88,5 @@ with tempfile.TemporaryDirectory(prefix="zentouch-release-") as directory:
         for name in ("LICENSE", "README.md", "THIRD-PARTY-NOTICES.md", "docs/quality-pass.md", "docs/feasibility.md"):
             assert (mount / name).is_file(), f"Missing release documentation: {name}"
     finally:
-        subprocess.run(["hdiutil", "detach", str(mount)], check=True, stdout=subprocess.DEVNULL)
-print("PASS DMG/ZIP relocation, signatures, resources, architecture, checksums and missing-profile recovery")
+        detach_validation_mount(mount)
+print("PASS DMG/ZIP relocation, signatures, resources, architecture, checksums and missing-profile/catalog recovery")

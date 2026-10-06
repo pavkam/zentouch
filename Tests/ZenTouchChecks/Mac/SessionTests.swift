@@ -6,6 +6,7 @@ import ZenTouchCore
 import ZenTouchMac
 
 private final class FakeReader: TouchReading {
+    var isConnected = true
     var onFrame: ((TouchFrame) -> Void)?
     var onReport: ((ReportStatistics) -> Void)?
     var onDisconnect: (() -> Void)?
@@ -177,4 +178,176 @@ func disconnectKeepsRestoreFailureVisible() throws {
     f.reader.restoreError = "Mode restoration failed"
     f.reader.onDisconnect?()
     try expect(f.session.state == .stopped && status == "Mode restoration failed")
+}
+
+func sessionFailuresCancelNativeSwipeExactlyOnce() throws {
+    for reason in 0..<3 {
+        let f = Fixture()
+        try f.start()
+        let touches = (1...3).map { Touch(id: $0, x: Double($0) * 0.1, y: 0.5) }
+        f.reader.send(touches)
+        f.now = 0.1
+        f.reader.send(touches.map { Touch(id: $0.id, x: $0.x + 0.1, y: $0.y) })
+        if reason == 0 {
+            f.session.stop()
+        } else if reason == 1 {
+            f.permissions = PermissionState(inputMonitoring: true, accessibility: false, eventPosting: false)
+            f.session.poll()
+        } else {
+            f.reader.onError?("Lost report during swipe")
+        }
+        f.reader.send(touches)
+        f.reader.send([])
+        f.session.stop()
+        let cancellations = f.sink.actions.filter {
+            if case .swipe(_, _, _, 0, .cancelled) = $0 { return true }
+            return false
+        }
+        try expect(cancellations.count == 1)
+        try expect(
+            !f.sink.actions.contains {
+                if case .click = $0 { return true }
+                return false
+            })
+    }
+    let disabled = Fixture()
+    try disabled.session.start(kind: .input, target: disabled.target, swipes: false)
+    disabled.reader.send((1...3).map { Touch(id: $0, x: Double($0) * 0.1, y: 0.5) })
+    disabled.now = 0.1
+    disabled.reader.send((1...3).map { Touch(id: $0, x: Double($0) * 0.1 + 0.2, y: 0.5) })
+    disabled.reader.send([])
+    try expect(disabled.sink.actions.isEmpty)
+}
+
+func inputRecoversAfterControllerSleepWithoutAppRestart() throws {
+    let f = Fixture()
+    let recovery = SessionRecovery(session: f.session, now: { f.now })
+    recovery.request(true)
+    try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .started)
+    f.beginDrag()
+    f.reader.isConnected = false  // Removal callback may arrive after the polling tick.
+    try expect(recovery.refresh(available: false, suspended: false, target: f.target) == .waiting)
+    try expect(f.session.state == .stopped && f.reader.stops == 1 && recovery.requested)
+    try expect(f.sink.actions.last == .up(Point(x: 300, y: 200)))
+    f.reader.isConnected = true
+    f.now = 1
+    try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .started)
+    try expect(f.reader.starts == 2 && f.session.state == .running(.input))
+    f.reader.send([Touch(id: 1, x: 0.4, y: 0.4)])
+    f.now = 1.1
+    f.reader.send([])
+    try expect(f.sink.actions.last == .click(Point(x: 400, y: 400), right: false))
+}
+
+func recoveryRespectsStopContactTestsAndSuspension() throws {
+    let f = Fixture()
+    let recovery = SessionRecovery(session: f.session, now: { f.now })
+    recovery.request(true)
+    try expect(recovery.refresh(available: true, suspended: true, target: f.target) == .idle)
+    try expect(f.reader.starts == 0)
+    try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .started)
+    recovery.request(false)  // User Stop clears intent before session cleanup.
+    f.session.stop()
+    try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .idle)
+    try f.session.start(kind: .contacts, target: nil)
+    try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .idle)
+    f.reader.onDisconnect?()
+    try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .idle)
+    try expect(f.reader.starts == 2 && !recovery.requested)
+}
+
+func recoveryBacksOffTransientReopenFailures() throws {
+    let f = Fixture()
+    let recovery = SessionRecovery(session: f.session, now: { f.now })
+    recovery.request(true)
+    f.reader.startError = ZenError(message: "USB controller still waking")
+    try expect(
+        recovery.refresh(available: true, suspended: false, target: f.target) == .failed("USB controller still waking"))
+    for now in [0.2, 0.4, 0.8] {
+        f.now = now
+        try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .idle)
+    }
+    try expect(f.reader.starts == 1)
+    f.now = 1
+    _ = recovery.refresh(available: true, suspended: false, target: f.target)
+    try expect(f.reader.starts == 2)
+    f.now = 2
+    try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .idle)
+    f.now = 3
+    f.reader.startError = nil
+    try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .started)
+    try expect(f.reader.starts == 3 && f.session.state == .running(.input))
+}
+
+func recoveryRevalidatesPermissionsAndDisplayBeforeResuming() throws {
+    let f = Fixture()
+    let recovery = SessionRecovery(session: f.session, now: { f.now })
+    recovery.request(true)
+    _ = recovery.refresh(available: true, suspended: false, target: f.target)
+    f.geometry = nil
+    try expect(recovery.refresh(available: false, suspended: false, target: nil) == .waiting)
+    try expect(f.session.state == .stopped && recovery.requested)
+    f.geometry = DisplayGeometry(bounds: CGRect(x: -500, y: 0, width: 1000, height: 1000), rotation: 0)
+    f.permissions = PermissionState(inputMonitoring: true, accessibility: false, eventPosting: false)
+    try expect(recovery.refresh(available: false, suspended: false, target: f.target) == .waiting)
+    try expect(f.reader.starts == 1)
+    f.permissions = PermissionState(inputMonitoring: true, accessibility: true, eventPosting: true)
+    try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .started)
+    try expect(f.reader.starts == 2)
+}
+
+func displayUUIDSurvivesChangedIDAndRejectsReusedIDs() throws {
+    let model = try require(ModelCatalog.current?.supportedModels.first?.model)
+    let awake = ScreenTarget(id: 12, name: model, uuid: "screen-a")
+    let reused = ScreenTarget(id: 3, name: "Built-in", uuid: "screen-b")
+    try expect(DisplaySelection.resolve(id: 3, uuid: "screen-a", in: [awake, reused]) == awake)
+    try expect(DisplaySelection.resolve(id: 3, uuid: "screen-a", in: [reused]) == nil)
+    try expect(DisplaySelection.resolve(id: 3, uuid: nil, in: [awake]) == awake)  // Legacy migration.
+    let second = ScreenTarget(id: 13, name: model, uuid: "screen-c")
+    try expect(DisplaySelection.resolve(id: nil, uuid: nil, in: [awake, second]) == nil)
+}
+
+func hardwareLossStopsInputBeforeSessionSnapshotsChange() throws {
+    let f = Fixture()
+    let recovery = SessionRecovery(session: f.session, now: { f.now })
+    recovery.request(true)
+    try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .started)
+    f.beginDrag()
+    // AppKit/HID reported removal, but the session still sees valid geometry
+    // and a connected reader. The authoritative availability must still stop it.
+    try expect(recovery.refresh(available: false, suspended: false, target: nil) == .waiting)
+    try expect(f.session.state == .stopped && f.reader.stops == 1 && recovery.requested)
+    try expect(f.sink.actions.last == .up(Point(x: 300, y: 200)))
+    let count = f.sink.actions.count
+    f.reader.send([Touch(id: 0, x: 0.8, y: 0.8)])
+    try expect(f.sink.actions.count == count)
+    try expect(recovery.refresh(available: true, suspended: false, target: f.target) == .started)
+    try expect(recovery.refresh(available: true, suspended: true, target: f.target) == .idle)
+    try expect(f.session.state == .stopped && f.reader.stops == 2 && recovery.requested)
+}
+
+func attachOrdersRequireBothDisplayAndController() throws {
+    for displayFirst in [true, false] {
+        let f = Fixture()
+        let recovery = SessionRecovery(session: f.session, now: { f.now })
+        recovery.request(true)
+        var display = false
+        var controller = false
+        func refresh() -> SessionRecovery.Result {
+            recovery.refresh(available: display && controller, suspended: false, target: display ? f.target : nil)
+        }
+        try expect(refresh() == .waiting && f.reader.starts == 0)
+        if displayFirst { display = true } else { controller = true }
+        try expect(refresh() == .waiting && f.reader.starts == 0)
+        display = true
+        controller = true
+        try expect(refresh() == .started && f.reader.starts == 1)
+        for _ in 0..<3 { try expect(refresh() == .idle && f.reader.starts == 1) }
+        if displayFirst { controller = false } else { display = false }
+        try expect(refresh() == .waiting && f.session.state == .stopped && recovery.requested)
+        recovery.request(false)
+        display = true
+        controller = true
+        try expect(refresh() == .idle && f.reader.starts == 1)  // Stop prevents reconnection from enabling input.
+    }
 }
