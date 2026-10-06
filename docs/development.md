@@ -3,38 +3,39 @@ SPDX-FileCopyrightText: 2026 Alexandru Ciobanu
 SPDX-License-Identifier: MIT
 -->
 
-# ZenTouch
+# Developing ZenTouch
 
-ZenTouch adds clicks, dragging, right-clicks and two-finger scrolling to the ASUS ZenScreen Touch MB16AMTR on macOS. It lives in the menu bar; closing Settings keeps input running. Clicks and two-finger scrolling have been physically verified on the attached Mac.
+This guide covers building ZenTouch, adding hardware support and diagnosing input. For setup and gestures, start with the [README](../README.md). The [model list](supported-models.md) separates tested hardware from monitors still needing compatibility work.
 
-The supported controller is **eGalaxTouch EXC3200-2505**, USB **0eef:c000**. ZenTouch checks its exact HID descriptor before changing the controller or translating contacts. Experimental pinch is opt-in; complete Apple trackpad gesture behavior remains unverified.
+The implemented controller profile is **eGalaxTouch EXC3200-2505**, USB **0eef:c000**, tested in the ASUS ZenScreen Touch MB16AMTR. ZenTouch checks its exact HID descriptor before changing the controller or translating contacts.
 
-## Install and run
+## Build from source
 
-Apple Command Line Tools, Swift and an existing local code-signing identity are sufficient.
+Install [Apple Command Line Tools](https://developer.apple.com/xcode/resources/) or Xcode, with Swift 6 or newer. You'll also need a code-signing identity. Full Xcode isn't required.
+
+If you don't have an identity, open **Keychain Access → Certificate Assistant → Create a Certificate**. Create a self-signed **Code Signing** certificate and configure its Code Signing trust for local use. List available identities with `security find-identity -v -p codesigning`.
 
 ```sh
+git clone https://github.com/pavkam/zentouch.git
+cd zentouch
 make check
 make install
 open ~/Applications/ZenTouch.app
 ```
 
+If several identities are available, choose one on the first build:
+
+```sh
+ZENTOUCH_SIGNING_IDENTITY="Your signing identity" make install
+```
+
 The installer verifies the bundle, checks that an existing app has the same signing requirement, requests a clean quit, and stages the replacement before installing it at **~/Applications/ZenTouch.app**. It registers that path with LaunchServices.
 
-The build pins the signing certificate's public fingerprint in ignored **.zentouch-signing-identity**. Later builds reuse the key and fail if it is unavailable. There is no ad-hoc fallback. To choose an identity on the first build, set **ZENTOUCH_SIGNING_IDENTITY** to its name or fingerprint.
+The build pins the signing certificate's public fingerprint in ignored **.zentouch-signing-identity**. Later builds reuse the key and fail if it is unavailable. There is no ad-hoc fallback.
 
-1. Open **Settings…** from the ZenTouch menu bar icon.
-2. Allow **Input Monitoring** and **Accessibility** in macOS Settings. Quit and reopen if macOS requests it. Green checks show grants seen by the running app.
-3. Select the ZenScreen, keep its rotation at **0°**, and click **Start Touch Input**.
-4. Tap to click, move one finger to drag, move two fingers together to scroll, or tap with two fingers to right-click. A stationary long touch also right-clicks on release.
+Follow [First run](../README.md#first-run) to grant permissions and start input. Developers can launch with **--test-touch** for contact-only capture without posting input; that option isn't in the normal UI.
 
-Settings uses one **Start Touch Input / Stop Touch Input** button and a live contact preview. Controller report/frame counts remain in the logs rather than the Settings form. Developers can use **--test-touch** for contact-only capture without posting input.
-
-ZenTouch remembers the display, experimental pinch preference, and whether input was enabled. Sleep or locking pauses input; wake or session activation resumes it once all suspension reasons clear. USB disconnects, permission loss and display changes pause capture; input resumes when the selected display and permissions return.
-
-Turning off **Active** in the menu (or clicking **Stop Touch Input** in Settings) releases active gestures, cancels pending recovery and requests the previous controller mode. **Quit ZenTouch** performs the same cleanup and exits. An abrupt kill cannot run cleanup; reconnect the USB cable if the controller needs resetting.
-
-If the app is missing from Privacy & Security, use **+** to add the installed app. The initial prototype used an ad-hoc signature; migration to the stable certificate required one app-scoped TCC reset. Normal updates preserve the signing requirement and do not reset permissions.
+Normal Stop/Quit releases active gestures, cancels pending recovery and requests the controller's previous mode. An abrupt kill cannot run cleanup; reconnect the USB cable if the controller needs resetting.
 
 ## Packaging
 
@@ -44,7 +45,9 @@ make package
 
 This runs the checks and produces **dist/ZenTouch.app**, a compressed DMG with an Applications shortcut, a ZIP, and SHA-256 checksums. The artifact name includes the version and build architecture. This Mac builds **arm64**.
 
-The package check extracts the ZIP and mounts the DMG read-only, verifies both relocated apps, checks signatures and checksums, and tests clean failure when the helper's controller profile is missing.
+The package check extracts the ZIP and mounts the DMG read-only, verifies both relocated apps, checks signatures and checksums, and tests clean failure when the helper's controller profile or model catalog is missing.
+
+The release also includes a SHA-256 manifest. Download both archives and that manifest into the same folder, then run `shasum -a 256 -c ZenTouch-*.sha256` from that folder.
 
 The bundle includes explicit ZenTouch names, version/build metadata, custom app and menu bar artwork, menu bar activation settings, bundled help, third-party notices, the hardware profile, and a separately signed **zentouch-cli** helper. The helper has a distinct filename because macOS filesystems commonly treat case-only names as the same file.
 
@@ -90,12 +93,26 @@ Run this with ZenTouch stopped. It opens Settings, writes a report and quits wit
 
 ```sh
 ~/Applications/ZenTouch.app/Contents/Helpers/zentouch-cli --help
+~/Applications/ZenTouch.app/Contents/Helpers/zentouch-cli models
 ~/Applications/ZenTouch.app/Contents/Helpers/zentouch-cli inspect
 ~/Applications/ZenTouch.app/Contents/Helpers/zentouch-cli capture --multitouch --seconds 30
 ~/Applications/ZenTouch.app/Contents/Helpers/zentouch-cli bridge --seconds 30
 ```
 
 Plain capture leaves the mode unchanged. Multi-touch capture writes feature report 5 and restores the read mode on stop. This controller returns mode 0 even while reporting multiple contacts, so actual input packets confirm multi-touch. When launched from a terminal, macOS can attribute grants to the terminal; use the signed GUI for normal operation.
+
+## Adding a monitor model
+
+Model names, exact display aliases, ASUS source URLs, advertised contact counts and test status belong in [supported-models.json](../Sources/ZenTouchCore/Resources/supported-models.json). The app and diagnostic helper load the same packaged file. Don't hardcode marketing model names in display detection or UI code.
+
+1. Add the model with an official ASUS source and `unverified` status.
+2. Capture its USB identity, HID descriptor and representative touch reports. Confirm whether it uses an existing controller profile; otherwise implement a profile and decoder with report fixtures.
+3. Test contact decoding, clicks, scrolling, disconnect and reconnect on the actual monitor. Record the hardware, OS and gestures tested in the quality notes.
+4. Link the confirmed profile and mark the entry `verified`. Update the [model list](supported-models.md) and README support table to match.
+
+Adding a catalog row doesn't implement hardware support. Capture still requires the controller's product identity and HID descriptor to match exactly. The loader rejects duplicate model names/aliases, invalid contact counts, unsupported schema versions, unofficial source URLs and invalid profile associations.
+
+Display matching uses complete model tokens, ignoring case and punctuation. A shorter name cannot match a longer model sharing its prefix. Automatic selection only uses verified entries with an implemented profile. A saved display UUID wins across reconnects; losing that display must never redirect input to another screen.
 
 ## Three-finger swipes
 
