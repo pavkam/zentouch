@@ -58,6 +58,7 @@ public final class WindowEventRouter: PointerEventRouting {
     private var mouseHeld = false
     private var mouseWindow: InputWindow?
     private var heldClickCount: Int64 = 1
+    private var routedClickCount: Int64 = 0
     private var scrollWindow: InputWindow?
     private var pinchWindow: InputWindow?
     private var lastClickWindow: InputWindow?
@@ -93,8 +94,13 @@ public final class WindowEventRouter: PointerEventRouting {
             mouseWindow = hit(event.location)
             target = mouseWindow
             if event.type == .rightMouseDown { lastClickWindow = nil }
-            if event.type == .leftMouseDown, !same(lastClickWindow, target) {
-                event.setIntegerValueField(.mouseEventClickState, value: 1)
+            if event.type == .leftMouseDown {
+                if event.getIntegerValueField(.mouseEventClickState) <= 1 || !same(lastClickWindow, target) {
+                    routedClickCount = 1
+                } else {
+                    routedClickCount = min(routedClickCount + 1, 3)
+                }
+                event.setIntegerValueField(.mouseEventClickState, value: routedClickCount)
             }
             heldClickCount = event.getIntegerValueField(.mouseEventClickState)
         case .leftMouseDragged, .rightMouseDragged:

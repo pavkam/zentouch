@@ -119,6 +119,10 @@ func windowRoutingHitOrderClickCountsAndInvalidGeometry() throws {
     f.visible = [f.a]
     try f.send(.leftMouseDown, CGPoint(x: 50, y: 200), clicks: 3)
     try expect(f.delivered.last?.1.id == f.a.id && f.delivered.last?.2 == 1)
+    try f.send(.leftMouseUp, CGPoint(x: 50, y: 200), clicks: 3)
+    try f.send(.leftMouseDown, CGPoint(x: 50, y: 200), clicks: 3)
+    try f.send(.leftMouseUp, CGPoint(x: 50, y: 200), clicks: 3)
+    try expect(f.delivered.suffix(2).allSatisfy { $0.2 == 2 })
     try expect(f.a.localPoint(CGPoint(x: -400, y: 200)) == CGPoint(x: 100, y: 300))
     let invalid = InputWindow(id: 0, pid: 0, bounds: CGRect(x: 0, y: 0, width: 1, height: 1))
     try expect(!invalid.isValid)
