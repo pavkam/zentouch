@@ -17,7 +17,8 @@ struct ZenTouchCLI {
             "process.start",
             [
                 "mode": args.first ?? "help",
-                "bundle": Bundle.main.bundleIdentifier ?? "cli", "version": "0.4.0", "log": diagnostics.fileURL.path,
+                "bundle": Bundle.main.bundleIdentifier ?? "cli", "version": AppVersion.current,
+                "log": diagnostics.fileURL.path,
             ])
         diagnostics.record(
             "process.permissions",
@@ -52,7 +53,7 @@ struct ZenTouchCLI {
             }
         case "--version":
             guard args.count == 1 else { throw ZenError(message: "--version takes no options.") }
-            print("ZenTouch CLI 0.4.0")
+            print("ZenTouch CLI \(AppVersion.current)")
         case "help", "--help", "-h":
             printUsage()
         case "inspect":

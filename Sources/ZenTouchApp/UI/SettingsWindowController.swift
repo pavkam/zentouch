@@ -6,12 +6,20 @@ import ZenTouchCore
 import ZenTouchMac
 
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
+    var loginOptionAvailable: Bool { login.isEnabled }
+    var loginOptionState: NSControl.StateValue { login.state }
+    var loginApprovalVisible: Bool { !loginSettings.isHidden }
+    var loginNoteText: String { loginNote.stringValue }
     var canStop: Bool { toggle.title == "Stop Touch Input" && toggle.isEnabled }
     var canStart: Bool { toggle.title == "Start Touch Input" && toggle.isEnabled }
     var displaySelectionEnabled: Bool { displays.isEnabled }
     var gestureOptionsEnabled: Bool { pinch.isEnabled && swipes.isEnabled }
     var pointerOptionEnabled: Bool { stationary.isEnabled }
     var touchIndicatorsEnabled: Bool { indicators.isEnabled }
+    private let login = NSButton(checkboxWithTitle: "Launch at login", target: nil, action: nil)
+    private let loginSettings = NSButton(title: "Open Login Items", target: nil, action: nil)
+    private let loginNote = NSTextField(wrappingLabelWithString: "Starts in the menu bar when you sign in.")
+    private var loginStatus = LoginItemStatus.disabled
     private let inputLabel = NSTextField(labelWithString: "")
     private let accessibilityLabel = NSTextField(labelWithString: "")
     private let inputButton = NSButton(title: "Allow Input Monitoring", target: nil, action: nil)
@@ -27,6 +35,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private let status = NSTextField(wrappingLabelWithString: "Ready.")
     private let canvas = TouchCanvas()
     private var targets: [ScreenTarget] = []
+    var onLoginChange: ((Bool) -> Void)?
+    var onLoginSettings: (() -> Void)?
     var onToggle: (() -> Void)?
     var onInputSettings: (() -> Void)?
     var onAccessibilitySettings: (() -> Void)?
@@ -80,6 +90,18 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         heading.alignment = .leading
         heading.spacing = 4
         add(heading)
+        login.target = self
+        login.action = #selector(changeLogin)
+        login.allowsMixedState = true
+        loginSettings.target = self
+        loginSettings.action = #selector(openLoginSettings)
+        loginSettings.isHidden = true
+        let loginRow = NSStackView(views: [login, loginSettings])
+        loginRow.spacing = 12
+        add(loginRow)
+        loginNote.font = .systemFont(ofSize: 11)
+        loginNote.textColor = .secondaryLabelColor
+        add(loginNote)
         add(label("Permissions", weight: .semibold))
         inputButton.target = self
         inputButton.action = #selector(allowInput)
@@ -224,6 +246,28 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         canvas.touches = frame.touches
         canvas.setAccessibilityValue("\(frame.touches.count) finger contacts")
     }
+    func updateLoginItem(status: LoginItemStatus, error: String? = nil) {
+        loginStatus = status
+        login.state = status == .enabled ? .on : (status == .requiresApproval ? .mixed : .off)
+        login.isEnabled = status != .unavailable
+        loginSettings.isHidden = status != .requiresApproval
+        loginNote.textColor = error == nil ? .secondaryLabelColor : .systemRed
+        if let error {
+            loginNote.stringValue = "Couldn’t update launch at login: \(error)"
+        } else {
+            switch status {
+            case .enabled, .disabled:
+                loginNote.stringValue =
+                    "Starts in the menu bar when you sign in. Previously active touch input resumes."
+            case .requiresApproval:
+                loginNote.stringValue = "Waiting for approval in System Settings → General → Login Items."
+            case .unavailable:
+                loginNote.stringValue = "Install ZenTouch in Applications to enable launch at login."
+            }
+        }
+    }
+    @objc private func changeLogin() { onLoginChange?(loginStatus == .disabled) }
+    @objc private func openLoginSettings() { onLoginSettings?() }
     @objc private func toggleInput() { onToggle?() }
     @objc private func allowInput() { onInputSettings?() }
     @objc private func allowAccessibility() { onAccessibilitySettings?() }

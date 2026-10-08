@@ -32,6 +32,9 @@ func expectThrows<E: Error>(_ type: E.Type, _ body: () throws -> Any?) throws {
             return
         }
         let checks: [(String, () throws -> Void)] = [
+            ("login item first registration and bundle boundary", loginItemFirstRegistrationIsAvailableInAppBundle),
+            ("login item system status and approval", loginItemUsesSystemStatusAndHandlesApproval),
+            ("login item registration/removal failures", loginItemFailuresNeverPretendRegistrationSucceeded),
             ("coordinates and lifts", decodesCoordinatesAndLiftContacts),
             ("ten-contact hybrid frames", assemblesTenContactHybridFrames),
             ("incomplete scan recovery", dropsIncompleteFramesWhenScanChanges),

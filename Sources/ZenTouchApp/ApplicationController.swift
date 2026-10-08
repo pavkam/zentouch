@@ -15,6 +15,9 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 pointerRouter: self?.preferences.keepPointerStationary == true ? WindowEventRouter() : nil)
         })
     private let preferences = AppPreferences()
+    private let loginItem = LaunchAtLogin()
+    private var loginItemError: String?
+    private var lastLoginItemStatus: LoginItemStatus?
     private let indicators = TouchIndicatorOverlay()
     private var menuBar: MenuBarController?
     private var settings: SettingsWindowController?
@@ -142,6 +145,19 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             view.onInputSettings = { [weak self] in self?.openPrivacy(input: true) }
             view.onAccessibilitySettings = { [weak self] in self?.openPrivacy(input: false) }
             view.onLogs = { [weak self] in self?.showLogs() }
+            view.onLoginChange = { [weak self] enabled in
+                guard let self else { return }
+                self.loginItemError = nil
+                do {
+                    try self.loginItem.setEnabled(enabled)
+                    diagnostics.record("app.loginItem.changed", ["status": self.loginItem.status.rawValue])
+                } catch {
+                    self.loginItemError = error.localizedDescription
+                    diagnostics.record("app.loginItem.error", ["error": error.localizedDescription])
+                }
+                self.updatePresentation()
+            }
+            view.onLoginSettings = { LaunchAtLogin.openSystemSettings() }
             view.onSelectDisplay = { [weak self] target in
                 self?.preferences.select(target)
                 self?.updatePresentation()
@@ -272,6 +288,13 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         updatePresentation()
     }
     private func updatePresentation() {
+        let loginStatus = loginItem.status
+        if loginStatus != lastLoginItemStatus {
+            lastLoginItemStatus = loginStatus
+            loginItemError = nil
+            diagnostics.record("app.loginItem.status", ["status": loginStatus.rawValue])
+        }
+        settings?.updateLoginItem(status: loginStatus, error: loginItemError)
         let permissions = PermissionState.current
         let selected = preferences.selectedTarget(in: targets)
         let geometry = selected?.geometry
@@ -442,6 +465,28 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 }
                 view.subviews.forEach(inspect)
             }
+            var loginChecks: [String: Bool] = [:]
+            self.settings?.updateLoginItem(status: .disabled)
+            loginChecks["offWithoutHardware"] =
+                self.settings?.loginOptionAvailable == true
+                && self.settings?.loginOptionState == .off
+            self.settings?.updateLoginItem(status: .enabled)
+            loginChecks["systemEnabled"] =
+                self.settings?.loginOptionState == .on
+                && self.settings?.loginApprovalVisible == false
+            self.settings?.updateLoginItem(status: .requiresApproval)
+            loginChecks["pendingApproval"] =
+                self.settings?.loginOptionState == .mixed
+                && self.settings?.loginApprovalVisible == true
+            self.settings?.updateLoginItem(status: .unavailable)
+            loginChecks["unavailable"] =
+                self.settings?.loginOptionAvailable == false
+                && self.settings?.loginOptionState == .off
+            self.settings?.updateLoginItem(status: .disabled, error: "Permission denied")
+            loginChecks["errorVisibleWithoutClaimingEnabled"] =
+                self.settings?.loginNoteText.contains("Permission denied") == true
+                && self.settings?.loginOptionState == .off
+            self.settings?.updateLoginItem(status: .requiresApproval)
             let originalFrame = window.frame
             for (name, size) in [
                 ("default", originalFrame.size), ("minimum", window.minSize),
@@ -591,6 +636,8 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 "contentBottomPadding": bottomPadding,
                 "touchIndicatorChecks": overlayChecks,
                 "hardwareAvailabilityChecks": hardwareChecks,
+                "loginItemChecks": loginChecks,
+                "loginItemStatus": self.loginItem.status.rawValue,
                 "appIconPresent": Bundle.main.url(forResource: "ZenTouch", withExtension: "icns") != nil,
                 "menuIconPresent": Bundle.main.url(forResource: "MenuBarTemplate", withExtension: "png") != nil,
                 "disconnectedMenuIconPresent": Bundle.main.url(

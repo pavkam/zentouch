@@ -10,7 +10,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 jobs:
   quality:
@@ -32,21 +32,62 @@ jobs:
     needs: quality
     runs-on: macos-26
     timeout-minutes: 20
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Create disposable CI signing identity
+      - name: Assign automatic release version
+        id: version
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          version=$(python3 scripts/set-ci-version.py "$RUN_NUMBER")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Import stable release signing identity
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          ZENTOUCH_CERTIFICATE_P12: ${{ secrets.ZENTOUCH_CERTIFICATE_P12 }}
+          ZENTOUCH_CERTIFICATE_PASSWORD: ${{ secrets.ZENTOUCH_CERTIFICATE_PASSWORD }}
+          ZENTOUCH_CERTIFICATE_SHA1: ${{ secrets.ZENTOUCH_CERTIFICATE_SHA1 }}
+        run: ./scripts/release-signing.sh
+      - name: Create disposable PR signing identity
+        if: github.ref != 'refs/heads/main' || github.event_name == 'pull_request'
         run: ./scripts/ci-signing.sh
       - name: Build and verify signed archives
         run: ./scripts/package-app.sh
-      - name: Retain test packages
+      - name: Retain verified packages
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: zentouch-ci-arm64-do-not-install
+          name: ${{ github.ref == 'refs/heads/main' && 'zentouch-release-arm64' || 'zentouch-ci-arm64-do-not-install' }}
           path: |
             dist/*.dmg
             dist/*.zip
             dist/*.sha256
           retention-days: 7
           if-no-files-found: error
+  release:
+    name: Publish release
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [quality, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: zentouch-release-arm64
+          path: dist
+      - name: Publish DMG, ZIP and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.package.outputs.version }}
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_REPO: ${{ github.repository }}
+        run: python3 scripts/publish-release.py --repo "$RELEASE_REPO" --version "$RELEASE_VERSION" --sha "$RELEASE_SHA"

@@ -28,7 +28,7 @@ Download the DMG from [Releases](https://github.com/pavkam/zentouch/releases), o
 
 These are preview builds, signed with the maintainer's local certificate rather than notarized by Apple. If macOS blocks the app, you can allow it through **System Settings → Privacy & Security → Open Anyway**.
 
-**This README describes the current source build.** The downloadable 0.3 preview doesn't yet include the three-finger swipes, stationary-pointer mode, touch indicators or reconnect improvements described below. Check the [release notes](CHANGELOG.md) for differences, or [build from source](docs/development.md#build-from-source) to use the latest changes.
+Every successful CI run on **main** publishes a new version with an Apple silicon DMG, ZIP and SHA-256 checksums. Release notes list the merged changes. Re-running the same CI run keeps the same version.
 
 ## First run
 
@@ -72,6 +72,12 @@ The menu's **Active** checkmark is your on/off switch. You can also use **Start 
 If the screen sleeps or disconnects, ZenTouch waits for it to return. **Active** stays checked while waiting, so input can resume without restarting the app. A slashed menu bar icon means the selected screen or its USB touch connection is missing. Open Settings or hover over the icon to see what's missing. Touch controls become available when the hardware returns. You can always stop input to cancel automatic resuming.
 
 Want to see where your fingers are? Turn on **Show touch indicators** in Settings. Teal rings follow each touch on the screen, including with Settings closed. You can toggle them while input is running. They're off by default; macOS Reduce Motion makes them steady instead of pulsing.
+
+## Launch when you sign in
+
+Enable **Launch at login** in Settings to start ZenTouch in the menu bar at your next login. Touch input resumes if it was active when you last used the app; a disconnected monitor is handled when it returns.
+
+If the checkbox shows a dash, macOS is waiting for approval. Click **Open Login Items** to approve ZenTouch in System Settings. You can also disable it there—the checkbox follows the system setting. This option works without a monitor attached.
 
 ## If something doesn't work
 

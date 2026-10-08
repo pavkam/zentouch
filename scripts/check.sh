@@ -5,6 +5,7 @@
 set -euo pipefail
 cd "${0:A:h:h}"
 python3 scripts/check-repository.py
+python3 scripts/test-release.py
 xcrun swift-format lint --strict --recursive Sources Tests Package.swift Resources/Branding/Artwork.swift
 swift build --build-system native -Xswiftc -warnings-as-errors
 swift run --build-system native -Xswiftc -warnings-as-errors zentouch-checks
