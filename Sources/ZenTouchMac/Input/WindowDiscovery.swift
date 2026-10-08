@@ -89,9 +89,10 @@ enum WindowDiscovery {
     static func activate(_ target: InputWindow) -> Bool {
         guard let application = NSRunningApplication(processIdentifier: target.pid) else { return false }
         if target.pid == getpid() {
+            let changed = !application.isActive
             NSApplication.shared.window(withWindowNumber: Int(target.id))?.makeKeyAndOrderFront(nil)
-            if !application.isActive { NSApplication.shared.activate(ignoringOtherApps: true) }
-            return false
+            if changed { NSApplication.shared.activate() }
+            return changed
         }
         let changed = !application.isActive
         if changed {
