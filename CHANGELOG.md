@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT
 
 ## 0.4.0 — unreleased
 
-- Add a saved, opt-in **Keep pointer stationary (experimental)** mode. Route touch events to the window under the finger, lock drag and scroll sequences to their original window, refresh coordinates after window movement and reject closed/reused targets. Activate touched apps without warping the mouse; compatibility beyond native AppKit controls remains under test.
+- Add a saved, opt-in **Keep pointer stationary (experimental)** mode. Route touch events to the window under the finger, lock drag and scroll sequences to their original window, refresh coordinates after window movement and reject closed/reused targets. Activate touched apps without warping the mouse; tapping and scrolling with the pointer stationary are confirmed in live use on macOS 27; wider app compatibility remains under test.
 
 - Move display model matching into a packaged catalog with ASUS sources, exact model aliases and verified/unverified status. Include researched ASUS touch models without claiming untested controller support; expose the catalog through `zentouch-cli models` and reject missing or invalid packaged data.
 - Show a slashed menu bar icon when the display or USB touch controller is unavailable, disable hardware-dependent controls and restore them on reconnect. Refresh directly on display and USB attach/detach notifications, retain polling as a fallback and log availability transitions. Keep Stop available while waiting to resume.

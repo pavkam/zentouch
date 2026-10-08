@@ -63,7 +63,7 @@ To change **Enable three-finger swipes** or **Enable experimental pinch**, stop 
 
 Stop touch input, enable **Keep pointer stationary (experimental)** in Settings, then start again. Taps, dragging and scrolling go to the window under your finger while your mouse pointer stays where you left it. Your choice is saved and used after reconnects.
 
-This mode is still experimental. Native AppKit controls have passed a separate-process test; compatibility across other apps still needs testing. Desktop, menu bar and some menu controls may not respond. If a window closes during a drag, ZenTouch drops the remaining events rather than sending them to another app. It never switches back to moving the pointer on its own. Turn the option off to restore normal pointer behavior.
+This mode is still experimental. Native AppKit controls have passed a separate-process test, and tapping and scrolling have been confirmed in live use on macOS 27. Compatibility still varies by app and control. Desktop, menu bar and some menu controls may not respond. If a window closes during a drag, ZenTouch drops the remaining events rather than sending them to another app. It never switches back to moving the pointer on its own. Turn the option off to restore normal pointer behavior.
 
 ## Everyday use
 
