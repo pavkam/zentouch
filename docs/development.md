@@ -149,3 +149,13 @@ The GUI smoke check exercises display-only, USB-only, fully detached, attached, 
 The **Show touch indicators** checkbox can change while input runs, persists independently and defaults off. **--show-touch-indicators** enables it explicitly for a developer launch. The signed GUI smoke check exercises synthetic contacts, focus preservation, pulse configuration, lift, opt-out, stopped state, invalid coordinates and stale-contact cleanup without capturing touch reports or posting input. It also renders only the overlay's own layer into a sibling PNG for visual inspection.
 
 See [the platform investigation](feasibility.md) and [the quality pass](quality-pass.md) for verified behavior and remaining limits.
+
+## Stationary-pointer routing
+
+The GUI's saved **Keep pointer stationary (experimental)** checkbox selects `WindowEventRouter` when a session starts; normal input and the CLI bridge keep the HID-tap poster. Stop before changing the option. The same factory is used by automatic reconnects.
+
+The router reads WindowServer IDs, owner PIDs and bounds in front-to-back order, without taking screenshots or reading window titles. It excludes ZenTouch's mouse-transparent overlay windows. Accessibility hit testing resolves interactive windows beneath utility overlays that WindowServer still reports; regular-app windows provide a fallback when no AX hit is available. A button press activates the touched application and raises a matching window through Accessibility; queued events wait briefly for activation and revalidate the owner before delivery. Drags and phased scrolling stay attached to their original window. Window disappearance and ID reuse discard events; this backend never falls back to a global pointer post.
+
+`WindowEventFactory` uses a hidden borderless AppKit window with the target's current geometry to construct window-local event coordinates. Setting only `CGEvent.location` gave incorrect receiver coordinates in the foreign-process experiment. The factory changes the destination PID and window metadata, preserves click counts, modifiers and fractional scroll fields, then posts with `CGEvent.postToPid`. Window identity uses undocumented field 51. This is an experimental OS adapter, separate from the ordinary public mouse/scroll path.
+
+Logs add `app.pointerMode.changed`, `input.window.post` and transition-limited `input.window.drop` records. Automated routing checks inject window lists, activation scheduling and event delivery, so they never click other apps. The separate native-control diagnostic is restricted to an owned receiver process. AppKit controls establish a useful baseline; desktop/menu bar behavior, menu tracking, cross-application drop operations and other app frameworks require live compatibility testing.

@@ -32,7 +32,7 @@ a { color: #087f82; } @media (prefers-color-scheme: dark) { a { color: #4ce7c5; 
 <li>Use the permission buttons to allow <strong>Input Monitoring</strong> and <strong>Accessibility</strong> in System Settings. These let ZenTouch read the touchscreen and send clicks and gestures. Quit and reopen the app if macOS asks you to. Green checks show when the permissions are ready.</li>
 <li>Select your ZenScreen and click <strong>Start Touch Input</strong>.</li>
 </ol>
-<p>Your fingers should appear in the Settings preview. Taps click where you touch, and the mouse pointer moves to your touch position.</p>
+<p>Your fingers should appear in the Settings preview. Taps click where you touch, and by default the mouse pointer moves to your touch position.</p>
 <h2>Gestures</h2>
 <table>
 <thead><tr><th scope="col">Gesture</th><th scope="col">Result</th></tr></thead>
@@ -49,6 +49,9 @@ a { color: #087f82; } @media (prefers-color-scheme: dark) { a { color: #4ce7c5; 
 </table>
 <p>Three-finger swipes are on by default. Place three fingers, move them together, then lift. Up and down act when you lift; the view doesn't follow your fingers. Three-finger dragging isn't supported.</p>
 <p>To change <strong>Enable three-finger swipes</strong> or <strong>Enable experimental pinch</strong>, stop touch input, change the checkbox in Settings, then start again. Pinch is off by default. These options are separate from your Mac's trackpad settings.</p>
+<h2>Keep the mouse pointer where it is</h2>
+<p>Stop input, enable <strong>Keep pointer stationary (experimental)</strong> in Settings, then start again. Taps, dragging and scrolling go to the window under your finger while the mouse stays put. Your choice is saved and used after reconnects.</p>
+<p>Tapping and scrolling have been confirmed in live use on macOS 27. Compatibility still varies by app and control. Desktop, menu bar and some menu controls may not respond. If a window closes during a drag, remaining events are dropped; the mode never falls back to moving the pointer. Turn the option off to restore normal pointer behavior.</p>
 <h2>Start, stop and reconnect</h2>
 <p>The menu's <strong>Active</strong> checkmark is your on/off switch. Settings has the same <strong>Start Touch Input / Stop Touch Input</strong> control. Closing Settings keeps touch working; <strong>Quit ZenTouch</strong> stops it and exits.</p>
 <p>If the screen sleeps or disconnects, ZenTouch waits for it to return. <strong>Active</strong> stays checked so input can resume without restarting. A slashed menu bar icon means the selected screen or its USB touch connection is missing. Open Settings or hover over the icon to see what's missing. Touch controls become available when the hardware returns. You can always stop input to cancel automatic resuming.</p>
@@ -61,11 +64,12 @@ a { color: #087f82; } @media (prefers-color-scheme: dark) { a { color: #4ce7c5; 
 <li><strong>ZenTouch isn't in Privacy &amp; Security:</strong> use <strong>+</strong> to add the installed app, then enable it.</li>
 <li><strong>Start is disabled or the icon is slashed:</strong> make sure the selected screen is awake and its USB data cable is connected. Settings explains which connection is missing.</li>
 <li><strong>The pointer doesn't line up:</strong> stop input, select the correct display, and check that its rotation is 0°.</li>
+<li><strong>A control ignores stationary-pointer touch:</strong> stop input, turn the option off and start again. Include the app and control in a bug report.</li>
 <li><strong>Touch stops after a forced quit:</strong> reconnect the USB cable. A normal Stop or Quit lets ZenTouch restore the controller's previous mode.</li>
 </ul>
 <p><strong>Open Logs Folder</strong> opens <code>~/Library/Logs/ZenTouch</code>. Logs rotate automatically and use at most 24 MiB. They include touchscreen positions and actions, so review excerpts before sharing them. For help, <a href="https://github.com/pavkam/zentouch/issues">open an issue</a> with your monitor model, macOS version and what you tried.</p>
 <h2>What still needs testing</h2>
 <p>Clicks, two-finger scrolling, three-finger Mission Control, use with Settings closed, and touch recovery after a monitor power cycle have been tested on an MB16AMTR with macOS 27. Desktop switching, App Exposé and pinch still need live testing. The latest attach/detach icon and control changes have automated coverage; physical testing is pending.</p>
-<p>ZenTouch sends mouse and scroll events; it doesn't add direct-touch support to Mac apps or provide every Apple trackpad gesture. Three-finger gestures and pinch rely on undocumented macOS behavior and may change with OS updates.</p>
+<p>ZenTouch sends mouse and scroll events; it doesn't add direct-touch support to Mac apps or provide every Apple trackpad gesture. Stationary-pointer routing, three-finger gestures and pinch rely on undocumented macOS behavior and may change with OS updates.</p>
 </body>
 </html>

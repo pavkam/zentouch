@@ -11,6 +11,10 @@ final class AppPreferences {
         get { defaults.bool(forKey: "touchInputEnabled") }
         set { defaults.set(newValue, forKey: "touchInputEnabled") }
     }
+    var keepPointerStationary: Bool {
+        get { defaults.bool(forKey: "keepPointerStationary") }
+        set { defaults.set(newValue, forKey: "keepPointerStationary") }
+    }
     var experimentalPinch: Bool {
         get { defaults.bool(forKey: "experimentalPinch") }
         set { defaults.set(newValue, forKey: "experimentalPinch") }

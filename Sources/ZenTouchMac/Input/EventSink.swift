@@ -13,6 +13,7 @@ public final class EventSink: EventPosting {
     let target: ScreenTarget
     let experimentalPinch: Bool
     private let bounds: CGRect
+    private let pointerRouter: PointerEventRouting?
     private let postEvent: (CGEvent) -> Void
     private let postGesture: (CGEvent) -> Void
     private let performSystemGesture: (SystemGestureAction) throws -> Void
@@ -25,6 +26,7 @@ public final class EventSink: EventPosting {
         target: ScreenTarget, geometry: DisplayGeometry, experimentalPinch: Bool,
         now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         clickInterval: TimeInterval? = nil,
+        pointerRouter: PointerEventRouting? = nil,
         postEvent: @escaping (CGEvent) -> Void = { $0.post(tap: .cghidEventTap) },
         postGesture: @escaping (CGEvent) -> Void = { $0.post(tap: .cgSessionEventTap) },
         performSystemGesture: @escaping (SystemGestureAction) throws -> Void = DockActions.perform
@@ -34,6 +36,7 @@ public final class EventSink: EventPosting {
         self.bounds = geometry.bounds
         self.now = now
         self.clickInterval = clickInterval ?? NSEvent.doubleClickInterval
+        self.pointerRouter = pointerRouter
         self.postEvent = postEvent
         self.postGesture = postGesture
         self.performSystemGesture = performSystemGesture
@@ -179,6 +182,6 @@ public final class EventSink: EventPosting {
                 "type": event.type.rawValue,
                 "x": event.location.x, "y": event.location.y, "flags": event.flags.rawValue,
             ])
-        postEvent(event)
+        if let pointerRouter { pointerRouter.post(event) } else { postEvent(event) }
     }
 }
