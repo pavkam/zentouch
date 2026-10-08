@@ -10,12 +10,15 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     var canStart: Bool { toggle.title == "Start Touch Input" && toggle.isEnabled }
     var displaySelectionEnabled: Bool { displays.isEnabled }
     var gestureOptionsEnabled: Bool { pinch.isEnabled && swipes.isEnabled }
+    var pointerOptionEnabled: Bool { stationary.isEnabled }
     var touchIndicatorsEnabled: Bool { indicators.isEnabled }
     private let inputLabel = NSTextField(labelWithString: "")
     private let accessibilityLabel = NSTextField(labelWithString: "")
     private let inputButton = NSButton(title: "Allow Input Monitoring", target: nil, action: nil)
     private let accessibilityButton = NSButton(title: "Allow Accessibility", target: nil, action: nil)
     private let displays = NSPopUpButton()
+    private let stationary = NSButton(
+        checkboxWithTitle: "Keep pointer stationary (experimental)", target: nil, action: nil)
     private let pinch = NSButton(checkboxWithTitle: "Enable experimental pinch", target: nil, action: nil)
     private let swipes = NSButton(checkboxWithTitle: "Enable three-finger swipes", target: nil, action: nil)
     private let indicators = NSButton(checkboxWithTitle: "Show touch indicators", target: nil, action: nil)
@@ -28,6 +31,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     var onInputSettings: (() -> Void)?
     var onAccessibilitySettings: (() -> Void)?
     var onSelectDisplay: ((ScreenTarget?) -> Void)?
+    var onPointerChange: ((Bool) -> Void)?
     var onPinchChange: ((Bool) -> Void)?
     var onSwipesChange: ((Bool) -> Void)?
     var onIndicatorsChange: ((Bool) -> Void)?
@@ -88,6 +92,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         displays.action = #selector(selectDisplay)
         displays.setAccessibilityLabel("Display receiving ZenScreen touch input")
         add(displays)
+        stationary.target = self
+        stationary.action = #selector(changePointer)
+        add(stationary)
+        let pointerNote = NSTextField(
+            wrappingLabelWithString:
+                "Touch the window under your finger while the mouse stays put. Compatibility varies; desktop and menu bar controls may not respond."
+        )
+        pointerNote.font = .systemFont(ofSize: 11)
+        pointerNote.textColor = .secondaryLabelColor
+        add(pointerNote)
         swipes.target = self
         swipes.action = #selector(changeSwipes)
         add(swipes)
@@ -161,6 +175,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     func update(
         state: SessionState, permissions: PermissionState, targets: [ScreenTarget], selected: ScreenTarget?,
         controllerAvailable: Bool, experimentalPinch: Bool, threeFingerSwipes: Bool, showTouchIndicators: Bool,
+        keepPointerStationary: Bool = false,
         inputRequested: Bool, targetAvailable: Bool, suspended: Bool = false,
         message: String
     ) {
@@ -191,6 +206,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         displays.isEnabled =
             !state.isRunning && controllerAvailable && !suspended
             && (targetAvailable || targets.contains(where: { $0.isSupportedTouchDisplay }))
+        stationary.state = keepPointerStationary ? .on : .off
+        stationary.isEnabled = !state.isRunning && hardwareAvailable && !suspended
         pinch.isEnabled = !state.isRunning && hardwareAvailable && !suspended
         pinch.state = experimentalPinch ? .on : .off
         swipes.isEnabled = !state.isRunning && hardwareAvailable && !suspended
@@ -214,6 +231,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         let index = displays.indexOfSelectedItem - 1
         onSelectDisplay?(targets.indices.contains(index) ? targets[index] : nil)
     }
+    @objc private func changePointer() { onPointerChange?(stationary.state == .on) }
     @objc private func changePinch() { onPinchChange?(pinch.state == .on) }
     @objc private func changeSwipes() { onSwipesChange?(swipes.state == .on) }
     @objc private func changeIndicators() { onIndicatorsChange?(indicators.state == .on) }

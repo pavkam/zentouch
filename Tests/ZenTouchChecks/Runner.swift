@@ -92,6 +92,15 @@ func expectThrows<E: Error>(_ type: E.Type, _ body: () throws -> Any?) throws {
             ("display coordinate mapping", eventCoordinatesRespectDisplayOriginAndEdges),
             ("click count boundaries", clickCountsDoNotLeakAcrossRightClickAndDrag),
             ("scroll event fields", scrollEventsRetainPhaseAndFractionalDeltas),
+            ("window drag capture and moved geometry", windowRoutingLocksDragsAndTracksMovedWindows),
+            ("window disappearance and ID reuse", windowRoutingDoesNotRetargetMissingOrReusedWindows),
+            ("window scroll capture and cancellation", windowRoutingLocksScrollAndRequiresNewBeginAfterCancel),
+            ("window activation ordering and revalidation", windowRoutingActivationPreservesOrderAndRevalidates),
+            ("window hit order and click boundaries", windowRoutingHitOrderClickCountsAndInvalidGeometry),
+            ("stationary input bypasses global pointer", stationarySinkBypassesGlobalPointerPosting),
+            ("window pinch capture and event boundaries", windowRoutingLocksPinchAndIgnoresUnexpectedEventTypes),
+            ("quick cross-app activation ordering", windowRoutingSerializesQuickTouchesAcrossApplications),
+            ("stop discards queued stationary input", windowRoutingCancelsQueuedInputWhenSessionIsReleased),
         ]
         var failures = 0
         for (name, check) in checks {

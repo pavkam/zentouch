@@ -28,7 +28,7 @@ Download the DMG from [Releases](https://github.com/pavkam/zentouch/releases), o
 
 These are preview builds, signed with the maintainer's local certificate rather than notarized by Apple. If macOS blocks the app, you can allow it through **System Settings → Privacy & Security → Open Anyway**.
 
-**This README describes the current source build.** The downloadable 0.3 preview doesn't yet include the three-finger swipes, touch indicators or reconnect improvements described below. Check the [release notes](CHANGELOG.md) for differences, or [build from source](docs/development.md#build-from-source) to use the latest changes.
+**This README describes the current source build.** The downloadable 0.3 preview doesn't yet include the three-finger swipes, stationary-pointer mode, touch indicators or reconnect improvements described below. Check the [release notes](CHANGELOG.md) for differences, or [build from source](docs/development.md#build-from-source) to use the latest changes.
 
 ## First run
 
@@ -37,7 +37,7 @@ These are preview builds, signed with the maintainer's local certificate rather 
 3. Use the permission buttons to allow **Input Monitoring** and **Accessibility** in System Settings. These let ZenTouch read the touchscreen and send clicks and gestures. Quit and reopen the app if macOS asks you to. Green checks show when the permissions are ready.
 4. Select your ZenScreen and click **Start Touch Input**.
 
-Touch the screen. You'll see your fingers in the Settings preview, and taps should click where you touch. ZenTouch moves the mouse pointer to your touch position.
+Touch the screen. You'll see your fingers in the Settings preview, and taps should click where you touch. By default, ZenTouch moves the mouse pointer to your touch position.
 
 ## Gestures
 
@@ -59,6 +59,12 @@ Three-finger swipes are on by default. Place three fingers on the screen, move t
 
 To change **Enable three-finger swipes** or **Enable experimental pinch**, stop touch input first, change the checkbox in Settings, then start again. Pinch is off by default. These options are separate from your Mac's trackpad settings.
 
+## Keep the mouse pointer where it is
+
+Stop touch input, enable **Keep pointer stationary (experimental)** in Settings, then start again. Taps, dragging and scrolling go to the window under your finger while your mouse pointer stays where you left it. Your choice is saved and used after reconnects.
+
+This mode is still experimental. Native AppKit controls have passed a separate-process test; compatibility across other apps still needs testing. Desktop, menu bar and some menu controls may not respond. If a window closes during a drag, ZenTouch drops the remaining events rather than sending them to another app. It never switches back to moving the pointer on its own. Turn the option off to restore normal pointer behavior.
+
 ## Everyday use
 
 The menu's **Active** checkmark is your on/off switch. You can also use **Start Touch Input / Stop Touch Input** in Settings. Closing Settings keeps touch working; **Quit ZenTouch** stops it and exits.
@@ -76,6 +82,7 @@ Want to see where your fingers are? Turn on **Show touch indicators** in Setting
 | ZenTouch isn't listed in Privacy & Security | Use **+** to add the installed ZenTouch app, then enable it. |
 | Start is disabled or the icon is slashed | Make sure the selected screen is awake and its USB data cable is connected. Settings explains which connection is missing. |
 | The pointer doesn't line up with your finger | Stop input, select the correct display, and check that its rotation is 0°. |
+| A control ignores stationary-pointer touch | Stop input, turn off **Keep pointer stationary (experimental)** and start again. Include the app and control in a bug report. |
 | Touch stops after a forced quit | Reconnect the USB cable. A normal Stop or Quit lets ZenTouch restore the controller's previous mode. |
 
 Still stuck? Choose **Open Logs Folder** and [open an issue](https://github.com/pavkam/zentouch/issues). Include your monitor model, macOS version and what you tried. Logs live in `~/Library/Logs/ZenTouch`; they rotate automatically and use at most 24 MiB. They include touch positions and actions from the touchscreen, so review any excerpt before sharing it.
@@ -84,7 +91,7 @@ Still stuck? Choose **Open Logs Folder** and [open an issue](https://github.com/
 
 Clicks, two-finger scrolling, three-finger Mission Control, use with Settings closed, and touch recovery after a monitor power cycle have been tested on an MB16AMTR with macOS 27. Desktop switching, App Exposé and pinch still need live testing. The latest attach/detach icon and control changes have automated coverage; physical testing is pending.
 
-ZenTouch translates touches into mouse and scroll events. It doesn't turn the screen into an Apple trackpad or add direct-touch support to Mac apps. Three-finger gestures and pinch rely on undocumented macOS behavior, which can change with OS updates. See the [quality notes](docs/quality-pass.md) for the detailed test record.
+ZenTouch translates touches into mouse and scroll events. It doesn't turn the screen into an Apple trackpad or add direct-touch support to Mac apps. Stationary-pointer routing, three-finger gestures and pinch rely on undocumented macOS behavior, which can change with OS updates. See the [quality notes](docs/quality-pass.md) for the detailed test record.
 
 ## Build or contribute
 

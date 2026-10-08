@@ -7,7 +7,13 @@ import ZenTouchMac
 
 final class ApplicationController: NSObject, NSApplicationDelegate {
     private let reader = HIDReader()
-    private lazy var session = TouchSession(reader: reader)
+    private lazy var session = TouchSession(
+        reader: reader,
+        makeSink: { [weak self] target, geometry, pinch in
+            EventSink(
+                target: target, geometry: geometry, experimentalPinch: pinch,
+                pointerRouter: self?.preferences.keepPointerStationary == true ? WindowEventRouter() : nil)
+        })
     private let preferences = AppPreferences()
     private let indicators = TouchIndicatorOverlay()
     private var menuBar: MenuBarController?
@@ -49,6 +55,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         RunLoop.main.add(preview, forMode: .common)
         previewTimer = preview
         let args = CommandLine.arguments
+        if args.contains("--keep-pointer-stationary") { preferences.keepPointerStationary = true }
         if args.contains("--show-touch-indicators") { preferences.showTouchIndicators = true }
         if let index = args.firstIndex(of: "--smoke-test"), args.indices.contains(index + 1) {
             refresh(allowResume: false)
@@ -138,6 +145,10 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             view.onSelectDisplay = { [weak self] target in
                 self?.preferences.select(target)
                 self?.updatePresentation()
+            }
+            view.onPointerChange = { [weak self] enabled in
+                self?.preferences.keepPointerStationary = enabled
+                diagnostics.record("app.pointerMode.changed", ["stationary": enabled])
             }
             view.onPinchChange = { [weak self] enabled in self?.preferences.experimentalPinch = enabled }
             view.onSwipesChange = { [weak self] enabled in self?.preferences.threeFingerSwipes = enabled }
@@ -308,6 +319,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             state: session.state, permissions: permissions, targets: targets, selected: selected,
             controllerAvailable: controllerAvailable, experimentalPinch: preferences.experimentalPinch,
             threeFingerSwipes: preferences.threeFingerSwipes, showTouchIndicators: preferences.showTouchIndicators,
+            keepPointerStationary: preferences.keepPointerStationary,
             inputRequested: recovery.requested, targetAvailable: targetAvailable, suspended: suspended,
             message: unavailableReason ?? message
         )
@@ -463,7 +475,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             }
             func touchOptionsDisabled() -> Bool {
                 self.settings?.displaySelectionEnabled == false && self.settings?.gestureOptionsEnabled == false
-                    && self.settings?.touchIndicatorsEnabled == false
+                    && self.settings?.touchIndicatorsEnabled == false && self.settings?.pointerOptionEnabled == false
             }
             presentHardware(display: false, controller: false)
             hardwareChecks["disconnectedIconAndDisabledControls"] =
@@ -482,13 +494,13 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 self.menuBar?.hasDisconnectedIcon == false
                 && self.menuBar?.canStart == true && self.settings?.canStart == true
                 && self.settings?.displaySelectionEnabled == true && self.settings?.gestureOptionsEnabled == true
-                && self.settings?.touchIndicatorsEnabled == true
+                && self.settings?.touchIndicatorsEnabled == true && self.settings?.pointerOptionEnabled == true
             presentHardware(display: true, controller: true, requested: true, state: .running(.input))
             hardwareChecks["runningKeepsLiveIndicatorToggle"] =
                 self.menuBar?.hasDisconnectedIcon == false
                 && self.menuBar?.requestedInputCanBeStopped == true && self.settings?.canStop == true
                 && self.settings?.displaySelectionEnabled == false && self.settings?.gestureOptionsEnabled == false
-                && self.settings?.touchIndicatorsEnabled == true
+                && self.settings?.touchIndicatorsEnabled == true && self.settings?.pointerOptionEnabled == false
             let denied = PermissionState(inputMonitoring: false, accessibility: false, eventPosting: false)
             presentHardware(display: true, controller: true, permissions: denied)
             hardwareChecks["connectedStartStillRequiresPermissions"] =
