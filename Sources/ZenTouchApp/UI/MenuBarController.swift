@@ -50,6 +50,15 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(action("Quit ZenTouch", #selector(quit), key: "q"))
         item.menu = menu
     }
+    func openForMediaCapture(_ ready: @escaping () -> Void) {
+        let capture = Timer(timeInterval: 0.4, repeats: false) { _ in ready() }
+        RunLoop.main.add(capture, forMode: .common)
+        let timeout = Timer(timeInterval: 30, repeats: false) { [weak self] _ in self?.closeForMediaCapture() }
+        RunLoop.main.add(timeout, forMode: .common)
+        item.button?.performClick(nil)
+        timeout.invalidate()
+    }
+    func closeForMediaCapture() { item.menu?.cancelTrackingWithoutAnimation() }
     private static func icon(_ name: String, fallback: String) -> NSImage? {
         let image =
             Bundle.main.url(forResource: name, withExtension: "png").flatMap { NSImage(contentsOf: $0) }

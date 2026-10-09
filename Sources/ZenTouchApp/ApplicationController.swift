@@ -95,6 +95,18 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
         } else if args.contains("--show-settings") || !PermissionState.current.canBridge {
             showSettings()
         }
+        if let index = args.firstIndex(of: "--capture-media"), args.indices.contains(index + 1) {
+            showSettings()
+            if #available(macOS 14.4, *), let settings, let menuBar {
+                Task { @MainActor in
+                    await MediaCapture.run(
+                        settings: settings, menu: menuBar, folder: URL(fileURLWithPath: args[index + 1]))
+                }
+            } else {
+                diagnostics.record("app.media.error", ["error": "Media capture requires macOS 14.4 or later."])
+            }
+        }
+
     }
 
     private func configureSession() {

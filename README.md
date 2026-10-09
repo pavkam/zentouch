@@ -41,7 +41,7 @@ Touch the screen. You'll see your fingers in the Settings preview, and taps shou
 
 ## Gestures
 
-![One finger taps and drags; two fingers move together to scroll](docs/assets/gestures.png)
+![Gestures: separate switches for click, scroll, pinch and each three-finger action](docs/media/settings-gestures.png)
 
 | Use your fingers to… | What happens |
 | --- | --- |
@@ -78,6 +78,9 @@ This mode is still experimental. Native AppKit controls have passed a separate-p
 
 ## Everyday use
 
+![ZenTouch menu with Active checked and permissions granted](docs/media/menu.png)
+
+
 The menu's **Active** checkmark is your on/off switch. Settings has the same **Active** checkbox. Closing Settings keeps touch working; **Quit ZenTouch** stops it and exits.
 
 If the screen sleeps or disconnects, ZenTouch waits for it to return. **Active** stays checked while waiting, so input can resume without restarting the app. A slashed menu bar icon means the selected screen or its USB touch connection is missing. Open Settings or hover over the icon to see what's missing. Touch controls become available when the hardware returns. You can always stop input to cancel automatic resuming.
@@ -90,6 +93,21 @@ Enable **Launch at login** in **Settings → App** to start ZenTouch in the menu
 
 If the checkbox shows a dash, macOS is waiting for approval. Click **Open Login Items** to approve ZenTouch in System Settings. You can also disable it there—the checkbox follows the system setting. This option works without a monitor attached.
 
+## Settings at a glance
+
+**Touch** chooses your screen, shows live finger contacts and controls pointer behavior and touch indicators. **Gestures** has the six individual switches. **App** handles launch at login and permissions. The window stays the same size, so every gesture card is visible without scrolling.
+
+<details>
+<summary>See the Touch and App tabs</summary>
+
+![Touch settings with a live surface and stationary pointer option](docs/media/settings-touch.png)
+
+![App settings with launch at login and granted permissions](docs/media/settings-app.png)
+
+</details>
+
+All four captures are in [the media gallery](docs/media/README.md).
+
 ## If something doesn't work
 
 | What you see | What to try |
@@ -99,7 +117,7 @@ If the checkbox shows a dash, macOS is waiting for approval. Click **Open Login 
 | ZenTouch isn't listed in Privacy & Security | Use **+** to add the installed ZenTouch app, then enable it. |
 | Active is disabled or the icon is slashed | Make sure the selected screen is awake and its USB data cable is connected. Settings explains which connection is missing. |
 | The pointer doesn't line up with your finger | Stop input, select the correct display, and check that its rotation is 0°. |
-| A control ignores stationary-pointer touch | Stop input, turn off **Keep pointer stationary (experimental)** and start again. Include the app and control in a bug report. |
+| A control ignores stationary-pointer touch | Stop input, turn off **Keep pointer stationary** and start again. Include the app and control in a bug report. |
 | Touch stops after a forced quit | Reconnect the USB cable. A normal Stop or Quit lets ZenTouch restore the controller's previous mode. |
 
 Still stuck? Choose **Open Logs Folder** and [open an issue](https://github.com/pavkam/zentouch/issues). Include your monitor model, macOS version and what you tried. Logs live in `~/Library/Logs/ZenTouch`; they rotate automatically and use at most 24 MiB. They include touch positions and actions from the touchscreen, so review any excerpt before sharing it.

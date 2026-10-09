@@ -17,6 +17,9 @@ h2 { font-size: 21px; margin-top: 32px; }
 li { margin: 8px 0; } code { font-size: 14px; }
 th, td { padding: 8px 12px; border-bottom: 1px solid #8886; text-align: left; vertical-align: top; }
 table { width: 100%; border-collapse: collapse; }
+figure { margin: 24px 0; }
+figure img { display: block; max-width: 100%; height: auto; border-radius: 12px; border: 1px solid #8884; }
+figcaption { color: #888; font-size: 13px; margin-top: 8px; }
 a { color: #087f82; } @media (prefers-color-scheme: dark) { a { color: #4ce7c5; } }
 </style>
 </head>
@@ -33,7 +36,9 @@ a { color: #087f82; } @media (prefers-color-scheme: dark) { a { color: #4ce7c5; 
 <li>In <strong>Touch</strong>, select your ZenScreen and enable <strong>Active</strong>.</li>
 </ol>
 <p>Your fingers should appear in the Settings preview. Taps click where you touch, and by default the mouse pointer moves to your touch position.</p>
+<figure><img src="Media/settings-touch.png" width="760" alt="Touch tab with display selection, a live touch surface, stationary pointer and touch indicators"><figcaption>Touch: choose your display and how your touches appear.</figcaption></figure>
 <h2>Gestures</h2>
+<figure><img src="Media/settings-gestures.png" width="760" alt="Gestures tab with six independent switches and illustrated examples"><figcaption>Gestures: turn each action on or off while touch input is running.</figcaption></figure>
 <table>
 <thead><tr><th scope="col">Gesture</th><th scope="col">Result</th></tr></thead>
 <tbody>
@@ -48,6 +53,7 @@ a { color: #087f82; } @media (prefers-color-scheme: dark) { a { color: #4ce7c5; 
 </tbody>
 </table>
 <p>Three-finger swipes are on by default. Place three fingers, move them together, then lift. Up and down act when you lift; the view doesn't follow your fingers. Three-finger dragging isn't supported.</p>
+<p>Settings has three tabs: <strong>Touch</strong>, <strong>Gestures</strong> and <strong>App</strong>. Its fixed window shows every gesture without scrolling.</p>
 <p>Open <strong>Settings → Gestures</strong> for animated examples and separate switches for <strong>Click &amp; drag</strong>, <strong>Scroll</strong>, <strong>Pinch to zoom</strong>, <strong>Switch desktops</strong>, <strong>Mission Control</strong> and <strong>App Exposé</strong>. Click &amp; drag also controls right-clicks.</p>
 <p>Change any switch while input is running, then lift all your fingers before trying the new setting. Choices are saved across quitting and reconnecting. Fresh installs enable all gestures; updates keep earlier pinch and three-finger opt-outs. These options don't change your Mac's trackpad settings.</p>
 <p>Spread two fingers to zoom in, or pinch them together to zoom out. The receiving app must support pinch zoom. If nothing happens, check the switch and try Preview or another zoomable view. Pinch works with both pointer modes. Gesture previews pause when hidden and become still illustrations with macOS Reduce Motion.</p>
@@ -55,10 +61,12 @@ a { color: #087f82; } @media (prefers-color-scheme: dark) { a { color: #4ce7c5; 
 <p>Stop input, enable <strong>Keep pointer stationary</strong> in <strong>Settings → Touch</strong>, then start again. Taps, dragging and scrolling go to the window under your finger while the mouse stays put. Your choice is saved and used after reconnects.</p>
 <p>Tapping and scrolling have been confirmed in live use on macOS 27. Compatibility still varies by app and control. Desktop, menu bar and some menu controls may not respond. If a window closes during a drag, remaining events are dropped; the mode never falls back to moving the pointer. Turn the option off to restore normal pointer behavior.</p>
 <h2>Start, stop and reconnect</h2>
+<figure><img src="Media/menu.png" width="246" alt="ZenTouch menu with Active checked, Settings and granted permissions"><figcaption>The menu keeps your everyday controls close.</figcaption></figure>
 <p>The menu's <strong>Active</strong> checkmark is your on/off switch. Settings has the same <strong>Active</strong> checkbox. Closing Settings keeps touch working; <strong>Quit ZenTouch</strong> stops it and exits.</p>
 <p>If the screen sleeps or disconnects, ZenTouch waits for it to return. <strong>Active</strong> stays checked so input can resume without restarting. A slashed menu bar icon means the selected screen or its USB touch connection is missing. Open Settings or hover over the icon to see what's missing. Touch controls become available when the hardware returns. You can always stop input to cancel automatic resuming.</p>
 <h2>Launch when you sign in</h2>
 <p>Enable <strong>Launch at login</strong> in <strong>Settings → App</strong>. ZenTouch starts in the menu bar at your next login and resumes touch input if it was previously active. You can change this with the monitor disconnected. If macOS needs approval, the checkbox shows a dash; click <strong>Open Login Items</strong> and approve ZenTouch. Changes in System Settings are reflected in the checkbox.</p>
+<figure><img src="Media/settings-app.png" width="760" alt="App tab with Launch at login and Input Monitoring and Accessibility checks"><figcaption>App: launch at login and check your permissions.</figcaption></figure>
 <h2>See your touches</h2>
 <p>Enable <strong>Show touch indicators</strong> in <strong>Settings → Touch</strong> for teal rings that follow your fingers on the screen, including with Settings closed. You can toggle this while input is running. Rings disappear when you lift or stop input. They're off by default; macOS Reduce Motion makes them steady instead of pulsing.</p>
 <h2>If something doesn't work</h2>

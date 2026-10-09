@@ -193,3 +193,9 @@ Settings separates Touch, Gestures and App controls in a fixed 760 × 770-point 
 A local separate-process diagnostic passed production engine → EventSink → WindowEventRouter delivery into native `NSScrollView` magnification, `NSMagnificationGestureRecognizer` and responder handlers with no pointer movement. This verifies event delivery on the tested OS, not every application's pinch support or physical controller use.
 
 For events directed at ZenTouch's own process, `WindowEventFactory` seeds the real destination `NSWindow` rather than its hidden foreign-window template. AppKit resolves a known seed window before retargeted CG metadata; using the template caused clicks to land in a hidden window even though hit testing and CG field 51 identified Settings correctly. Native controls and keyboard/accessibility navigation remain standard AppKit behavior.
+
+## Screenshots for documentation
+
+`--capture-media <directory>` exports the three real Settings tabs and the menu on macOS 14.4+. It uses `SCShareableContent.currentProcess` and verifies the owner PID before capturing a window. Capture never falls back to desktop or foreign-window enumeration and does not request Screen Recording access. Menu screenshots use background callbacks while AppKit runs its nested tracking loop, then close the menu on the main run loop. Normal launches never capture media.
+
+See [the media gallery](media/README.md) for refresh instructions. The PNGs ship with local Help, and bundle verification requires all four images. The README uses the same captures.
