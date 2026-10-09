@@ -43,5 +43,5 @@ for file in files:
         assert 'permissions:' in content and 'timeout-minutes:' in content, file
 with (root / 'Resources/Info.plist').open('rb') as stream:
     version = plistlib.load(stream)['CFBundleShortVersionString']
-assert f'ZenTouch CLI {version}' in (root / 'Sources/ZenTouchCLI/CommandLine.swift').read_text()
+assert f'public static let current = "{version}"' in (root / 'Sources/ZenTouchCore/AppVersion.swift').read_text()
 print('PASS SPDX coverage, local links, script/config syntax, pinned Actions and version agreement')

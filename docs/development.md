@@ -51,7 +51,29 @@ The release also includes a SHA-256 manifest. Download both archives and that ma
 
 The bundle includes explicit ZenTouch names, version/build metadata, custom app and menu bar artwork, menu bar activation settings, bundled help, third-party notices, the hardware profile, and a separately signed **zentouch-cli** helper. The helper has a distinct filename because macOS filesystems commonly treat case-only names as the same file.
 
-These are local certificate-signed builds. They are not notarized Developer ID releases; public distribution requires the appropriate Apple signing identity and notarization.
+Local and automated release builds use the same stable maintainer certificate. They are not notarized Developer ID builds; macOS may require **Privacy & Security → Open Anyway**. Developer ID signing and notarization remain separate work.
+
+### Automated releases
+
+CI checks macOS 15 and 26, then builds and verifies the Apple silicon package. Pull requests use a disposable signing certificate; their artifacts are labelled **do-not-install**. Only runs on **main** import the stable certificate, and only the final publishing job has `contents: write`.
+
+`set-ci-version.py` keeps the source version's major/minor and adds the CI run number to its patch component (for example, source `0.4.0` + run `42` produces `0.4.42`, build `42`). The generated bundle and shared GUI/CLI version agree. No version commit is pushed. Numbers can have gaps because PR runs use the same counter; re-running a run retains its version. Increase the source major/minor together in **Info.plist** and **AppVersion.swift** for a new series.
+
+Each successful main run publishes a release for that exact commit, with generated notes, DMG, ZIP and SHA-256 manifest. Manual CI runs on main also release. Failed or cancelled runs do not publish. The publisher checks archive hashes, uploads into a draft, then publishes. A re-run resumes the draft or verifies an already published release; a mismatched tag or published asset fails without overwriting it. Release tags remain protected against updates and deletion.
+
+Configure these encrypted repository secrets for stable signing:
+
+- **ZENTOUCH_CERTIFICATE_P12**: base64-encoded PKCS#12 containing only the maintainer signing identity.
+- **ZENTOUCH_CERTIFICATE_PASSWORD**: that export's password.
+- **ZENTOUCH_CERTIFICATE_SHA1**: the certificate's public SHA-1 fingerprint, matching the local pinned identity.
+
+The main runner imports the identity into a temporary keychain and verifies the expected fingerprint. Missing secrets or a mismatched certificate stop packaging; release signing never falls back to the disposable PR key. Secrets are not available to pull request packaging. The runner is discarded after the job.
+
+### Launch at login
+
+The Settings checkbox uses Apple's `SMAppService.mainApp`, available on all supported macOS versions. macOS owns its state; no UserDefaults copy or custom LaunchAgent is installed. Enabled, disabled, pending approval and unavailable states are distinct. Pending approval offers **Open Login Items**; errors remain visible without claiming success. The one-second UI refresh and app activation read back external changes. Login registration is independent of monitor availability and touch input. A login launch uses the existing saved input/reconnect flow and starts in the menu bar.
+
+Injected checks cover approval, external changes, duplicate requests, failures and unavailable services without modifying the runner's Login Items. The signed Settings smoke check exercises each presentation state and the approval row at minimum, default and large sizes.
 
 ## Logs
 

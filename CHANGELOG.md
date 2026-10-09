@@ -5,7 +5,10 @@ SPDX-License-Identifier: MIT
 
 # Changelog
 
-## 0.4.0 — unreleased
+## 0.4.x — automatic main releases
+
+- Added **Launch at login** in Settings, backed by macOS Login Items. Shows pending approval, reflects changes in System Settings and works without a connected monitor.
+- Successful main CI runs publish versioned, consistently signed Apple silicon DMG/ZIP releases with SHA-256 checksums and generated notes. Re-runs resume interrupted drafts without changing published assets.
 
 - Add a saved, opt-in **Keep pointer stationary (experimental)** mode. Route touch events to the window under the finger, lock drag and scroll sequences to their original window, refresh coordinates after window movement and reject closed/reused targets. Activate touched apps without warping the mouse; tapping and scrolling with the pointer stationary are confirmed in live use on macOS 27; wider app compatibility remains under test.
 
