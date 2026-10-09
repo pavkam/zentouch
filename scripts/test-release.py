@@ -114,11 +114,17 @@ class ReleaseChecks(unittest.TestCase):
             target = self.root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes((ROOT / relative).read_bytes())
-        self.assertEqual(versioning.set_version(self.root, "123"), "0.4.123")
+        # A fixed fixture tests version arithmetic independently of release series.
+        info_path = self.root / "Resources/Info.plist"
+        base = plistlib.loads(info_path.read_bytes())["CFBundleShortVersionString"]
+        info_path.write_text(info_path.read_text().replace(f"<string>{base}</string>", "<string>2.3.4</string>"))
+        source_path = self.root / "Sources/ZenTouchCore/AppVersion.swift"
+        source_path.write_text(source_path.read_text().replace(f'current = "{base}"', 'current = "2.3.4"'))
+        self.assertEqual(versioning.set_version(self.root, "123"), "2.3.127")
         info = plistlib.loads((self.root / "Resources/Info.plist").read_bytes())
         self.assertEqual(info["CFBundleVersion"], "123")
-        self.assertEqual(info["CFBundleShortVersionString"], "0.4.123")
-        self.assertIn('current = "0.4.123"', (self.root / "Sources/ZenTouchCore/AppVersion.swift").read_text())
+        self.assertEqual(info["CFBundleShortVersionString"], "2.3.127")
+        self.assertIn('current = "2.3.127"', (self.root / "Sources/ZenTouchCore/AppVersion.swift").read_text())
         self.assertIn("SPDX-License-Identifier: MIT", (self.root / "Resources/Info.plist").read_text())
 
     def test_invalid_run_numbers_do_not_modify_source(self):

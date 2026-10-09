@@ -166,8 +166,13 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 self?.preferences.keepPointerStationary = enabled
                 diagnostics.record("app.pointerMode.changed", ["stationary": enabled])
             }
-            view.onPinchChange = { [weak self] enabled in self?.preferences.experimentalPinch = enabled }
-            view.onSwipesChange = { [weak self] enabled in self?.preferences.threeFingerSwipes = enabled }
+            view.onGestureChange = { [weak self] feature, enabled in
+                guard let self else { return }
+                self.preferences.setGesture(feature, enabled: enabled)
+                self.session.updateGestureOptions(self.preferences.gestureOptions)
+                diagnostics.record("app.gesture.changed", ["gesture": feature.rawValue, "enabled": enabled])
+                self.updatePresentation()
+            }
             view.onIndicatorsChange = { [weak self] enabled in
                 guard let self else { return }
                 self.preferences.showTouchIndicators = enabled
@@ -194,7 +199,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             if kind == .input {
                 try recovery.startInput(
                     target: target, pinch: preferences.experimentalPinch,
-                    swipes: preferences.threeFingerSwipes)
+                    swipes: preferences.threeFingerSwipes, options: preferences.gestureOptions)
                 if let target { preferences.select(target) }
             } else {
                 try session.start(kind: kind, target: target)
@@ -241,7 +246,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 available: ModelCatalog.current != nil && permissions.canBridge && controllerAvailable
                     && target?.geometry?.supported == true,
                 suspended: suspended, target: target, pinch: preferences.experimentalPinch,
-                swipes: preferences.threeFingerSwipes)
+                swipes: preferences.threeFingerSwipes, options: preferences.gestureOptions)
             switch result {
             case .idle: break
             case .waiting:
@@ -342,7 +347,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             state: session.state, permissions: permissions, targets: targets, selected: selected,
             controllerAvailable: controllerAvailable, experimentalPinch: preferences.experimentalPinch,
             threeFingerSwipes: preferences.threeFingerSwipes, showTouchIndicators: preferences.showTouchIndicators,
-            keepPointerStationary: preferences.keepPointerStationary,
+            keepPointerStationary: preferences.keepPointerStationary, gestureOptions: preferences.gestureOptions,
             inputRequested: recovery.requested, targetAvailable: targetAvailable, suspended: suspended,
             message: unavailableReason ?? message
         )
@@ -451,8 +456,9 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             var bottomPadding: [String: CGFloat] = [:]
             var scenario = ""
             func inspect(_ view: NSView) {
+                if view.isHiddenOrHasHiddenAncestor { return }
                 if view.hasAmbiguousLayout { ambiguous.append("\(scenario): \(type(of: view))") }
-                if view !== root, !view.isHidden {
+                if view !== root, !view.isHiddenOrHasHiddenAncestor, view.enclosingScrollView == nil {
                     let frame = view.convert(view.bounds, to: root)
                     if let button = view as? NSButton, button.title == "Open Logs Folder" {
                         bottomPadding[scenario] = root.isFlipped ? root.bounds.height - frame.maxY : frame.minY
@@ -487,17 +493,69 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 self.settings?.loginNoteText.contains("Permission denied") == true
                 && self.settings?.loginOptionState == .off
             self.settings?.updateLoginItem(status: .requiresApproval)
-            let originalFrame = window.frame
-            for (name, size) in [
-                ("default", originalFrame.size), ("minimum", window.minSize),
-                ("large", NSSize(width: 760, height: 900)),
-            ] {
-                scenario = name
-                window.setFrame(NSRect(origin: originalFrame.origin, size: size), display: true)
+            for tab in 0..<3 {
+                scenario = "fixed-tab\(tab)"
+                self.settings?.selectTab(tab)
                 root.layoutSubtreeIfNeeded()
                 inspect(root)
+                if let bitmap = root.bitmapImageRepForCachingDisplay(in: root.bounds) {
+                    self.settings?.setAnimationProgress(0.35)
+                    root.cacheDisplay(in: root.bounds, to: bitmap)
+                    let preview = output.deletingPathExtension().appendingPathExtension("tab\(tab).png")
+                    try? bitmap.representation(using: .png, properties: [:])?.write(to: preview)
+                }
             }
-            window.setFrame(originalFrame, display: true)
+            self.settings?.selectTab(0)
+            var gestureUIChecks: [String: Bool] = [:]
+            gestureUIChecks["fixedWindow"] = !window.styleMask.contains(.resizable) && window.minSize == window.maxSize
+            gestureUIChecks["largerMenuIcon"] = self.menuBar?.iconSize == NSSize(width: 27, height: 27)
+            let gesturePermissions = PermissionState(inputMonitoring: true, accessibility: true, eventPosting: true)
+            for feature in GestureFeature.allCases {
+                var options = GestureOptions(
+                    clicks: false, scrolling: false, pinch: false, desktops: false, missionControl: false,
+                    appExpose: false)
+                options[feature] = true
+                self.settings?.update(
+                    state: .running(.input), permissions: gesturePermissions, targets: [], selected: nil,
+                    controllerAvailable: true, experimentalPinch: false, threeFingerSwipes: false,
+                    showTouchIndicators: false, gestureOptions: options, inputRequested: true,
+                    targetAvailable: true, message: "Gesture check")
+                gestureUIChecks["independent-\(feature.rawValue)"] =
+                    GestureFeature.allCases.allSatisfy {
+                        self.settings?.gestureState($0) == ($0 == feature ? .on : .off)
+                    } && self.settings?.gestureOptionsEnabled == true
+            }
+            self.settings?.selectTab(1)
+            gestureUIChecks["animationFollowsReduceMotion"] =
+                self.settings?.animationIsActive
+                == (!NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+                    && window.occlusionState.contains(.visible))
+            self.settings?.selectTab(0)
+            gestureUIChecks["animationStopsOutsideGestures"] = self.settings?.animationIsActive == false
+            self.settings?.selectTab(1)
+            window.close()
+            gestureUIChecks["animationStopsWhenClosed"] = self.settings?.animationIsActive == false
+            self.settings?.present()
+            self.settings?.selectTab(0)
+            var preferenceChecks: [String: Bool] = [:]
+            let suite = "org.pavkam.zentouch.smoke.\(UUID().uuidString)"
+            if let defaults = UserDefaults(suiteName: suite) {
+                let stored = AppPreferences(defaults: defaults)
+                preferenceChecks["newDefaultsEnableAllGestures"] = GestureFeature.allCases.allSatisfy {
+                    stored.gestureOptions[$0]
+                }
+                defaults.set(false, forKey: "experimentalPinch")
+                defaults.set(false, forKey: "threeFingerSwipes")
+                preferenceChecks["preservesLegacyOptOut"] =
+                    !stored.gestureOptions.pinch && !stored.gestureOptions.hasThreeFingerGesture
+                stored.setGesture(.missionControl, enabled: true)
+                stored.setGesture(.clicks, enabled: false)
+                let reopened = AppPreferences(defaults: defaults).gestureOptions
+                preferenceChecks["individualChoicesPersist"] =
+                    reopened.missionControl && !reopened.desktops && !reopened.appExpose && !reopened.pinch
+                    && !reopened.clicks && reopened.scrolling
+                defaults.removePersistentDomain(forName: suite)
+            }
             var hardwareChecks: [String: Bool] = [:]
             hardwareChecks["modelCatalogAvailable"] = ModelCatalog.current?.supportedModels.isEmpty == false
             let testTarget = ScreenTarget(
@@ -544,7 +602,7 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
             hardwareChecks["runningKeepsLiveIndicatorToggle"] =
                 self.menuBar?.hasDisconnectedIcon == false
                 && self.menuBar?.requestedInputCanBeStopped == true && self.settings?.canStop == true
-                && self.settings?.displaySelectionEnabled == false && self.settings?.gestureOptionsEnabled == false
+                && self.settings?.displaySelectionEnabled == false && self.settings?.gestureOptionsEnabled == true
                 && self.settings?.touchIndicatorsEnabled == true && self.settings?.pointerOptionEnabled == false
             let denied = PermissionState(inputMonitoring: false, accessibility: false, eventPosting: false)
             presentHardware(display: true, controller: true, permissions: denied)
@@ -637,6 +695,8 @@ final class ApplicationController: NSObject, NSApplicationDelegate {
                 "touchIndicatorChecks": overlayChecks,
                 "hardwareAvailabilityChecks": hardwareChecks,
                 "loginItemChecks": loginChecks,
+                "gesturePreferenceChecks": preferenceChecks,
+                "gestureUIChecks": gestureUIChecks,
                 "loginItemStatus": self.loginItem.status.rawValue,
                 "appIconPresent": Bundle.main.url(forResource: "ZenTouch", withExtension: "icns") != nil,
                 "menuIconPresent": Bundle.main.url(forResource: "MenuBarTemplate", withExtension: "png") != nil,

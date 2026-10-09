@@ -5,6 +5,14 @@ SPDX-License-Identifier: MIT
 
 # Changelog
 
+## 0.5.0 — gesture controls and pinch zoom
+
+- Enable native two-finger pinch zoom, with phased magnification and safe cancellation in both pointer modes.
+- Add independent saved switches for click/drag/right-click, scrolling, pinch, desktop switching, Mission Control and App Exposé. Change them live without reopening the controller; unfinished contacts are suppressed until lift.
+- Redesign Settings into Touch, Gestures and App sections, with animated gesture cards, an Active checkbox and a compact status footer. Use a fixed, taller window that shows every gesture without scrolling, and enlarge both menu bar icons by 50%. Pause previews when hidden and respect Reduce Motion.
+- Preserve earlier pinch and three-finger opt-outs. Enable every gesture on fresh installs and restore individual choices after reconnects.
+- Fix stationary touch in ZenTouch’s own Settings by keeping its real AppKit window identity when routing events. Add native magnification, independent feature, live-change cancellation, reconnect, migration and own-window regression checks.
+
 ## 0.4.x — automatic main releases
 
 - Added **Launch at login** in Settings, backed by macOS Login Items. Shows pending approval, reflects changes in System Settings and works without a connected monitor.

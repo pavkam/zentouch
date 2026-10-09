@@ -7,11 +7,16 @@ import ZenTouchCore
 
 public protocol EventPosting: AnyObject {
     func emit(_ action: InputAction)
+    func updateOptions(_ options: GestureOptions)
+}
+
+extension EventPosting {
+    public func updateOptions(_ options: GestureOptions) {}
 }
 
 public final class EventSink: EventPosting {
     let target: ScreenTarget
-    let experimentalPinch: Bool
+    private var experimentalPinch: Bool
     private let bounds: CGRect
     private let pointerRouter: PointerEventRouting?
     private let postEvent: (CGEvent) -> Void
@@ -41,6 +46,8 @@ public final class EventSink: EventPosting {
         self.postGesture = postGesture
         self.performSystemGesture = performSystemGesture
     }
+
+    public func updateOptions(_ options: GestureOptions) { experimentalPinch = options.pinch }
 
     public func emit(_ action: InputAction) {
         diagnostics.record(
@@ -119,36 +126,14 @@ public final class EventSink: EventPosting {
                 diagnostics.record("input.swipe.error", ["error": String(describing: error)])
             }
         case .magnify(let p, let delta, let phase):
-            guard experimentalPinch,
-                let event = CGEvent(
-                    mouseEventSource: nil, mouseType: .mouseMoved,
-                    mouseCursorPosition: global(p), mouseButton: .left)
-            else { return }
-            // Undocumented CGEvent ABI used by Touch-Up. This simple adapter may
-            // work with NSResponder.magnify but fail with gesture recognizers.
-            // Kept opt-in until tested against this macOS build and target apps.
-            guard let gestureType = CGEventType(rawValue: 29),
-                let subtype = CGEventField(rawValue: 50), let direction = CGEventField(rawValue: 101),
-                let kind = CGEventField(rawValue: 110), let phaseField = CGEventField(rawValue: 132)
-            else {
-                diagnostics.record("input.pinch.unsupported")
-                return
+            guard experimentalPinch else { return }
+            do {
+                let event = try MagnificationEvents.make(location: global(p), delta: delta, phase: phase)
+                post(event)
+                diagnostics.record("input.pinch.post", ["delta": delta, "phase": phase.rawValue])
+            } catch {
+                diagnostics.record("input.pinch.error", ["error": String(describing: error)])
             }
-            let deltaFields = [113, 114, 116, 118].compactMap { CGEventField(rawValue: UInt32($0)) }
-            guard deltaFields.count == 4 else {
-                diagnostics.record("input.pinch.unsupported")
-                return
-            }
-            event.type = gestureType
-            event.flags = []
-            for field in deltaFields {
-                event.setDoubleValueField(field, value: delta)
-            }
-            event.setIntegerValueField(subtype, value: 248)
-            event.setIntegerValueField(direction, value: 4)
-            event.setIntegerValueField(kind, value: 8)
-            event.setIntegerValueField(phaseField, value: phase.rawValue)
-            post(event)
         }
     }
 

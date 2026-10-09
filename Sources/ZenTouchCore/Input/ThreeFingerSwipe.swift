@@ -13,9 +13,12 @@ struct ThreeFingerSwipe {
     private var velocity = 0.0
     private var lastTime: Double
     private var lastMovementTime: Double
+    private let options: GestureOptions
+    private var suppressed = false
     private static let fullTravel = 240.0
 
-    init(points: [Point], time: Double) {
+    init(points: [Point], time: Double, options: GestureOptions = GestureOptions()) {
+        self.options = options
         origins = points
         anchor = Point(x: points.map(\.x).reduce(0, +) / 3, y: points.map(\.y).reduce(0, +) / 3)
         lastTime = time
@@ -23,7 +26,7 @@ struct ThreeFingerSwipe {
     }
 
     mutating func process(points: [Point], time: Double) -> [InputAction] {
-        guard time >= lastTime else { return [] }
+        guard time >= lastTime, !suppressed else { return [] }
         let deltas = zip(points, origins).map { Point(x: $0.x - $1.x, y: $0.y - $1.y) }
         let dx = deltas.map(\.x).reduce(0, +) / 3
         let dy = deltas.map(\.y).reduce(0, +) / 3
@@ -45,6 +48,14 @@ struct ThreeFingerSwipe {
                         && hypot($0.x - dx, $0.y - dy) <= max(24, abs(travel) * 0.5)
                 })
             else { return [] }
+            let enabled =
+                candidate == .horizontal
+                ? options.desktops
+                : (travel < 0 ? options.missionControl : options.appExpose)
+            guard enabled else {
+                suppressed = true
+                return []
+            }
             axis = candidate
             actions.append(.swipe(anchor, axis: candidate, progress: 0, velocity: 0, phase: .began))
         }
@@ -63,6 +74,11 @@ struct ThreeFingerSwipe {
 
     func finish(cancelled: Bool, time: Double) -> [InputAction] {
         guard let axis else { return [] }  // Three-finger taps have no action.
+        let directionEnabled =
+            axis == .horizontal
+            ? options.desktops
+            : (progress < 0 ? options.missionControl : options.appExpose)
+        let cancelled = cancelled || !directionEnabled
         let age = time - lastMovementTime
         let endVelocity = !cancelled && age >= 0 && age <= 0.1 ? velocity : 0
         return [

@@ -11,7 +11,7 @@ import re
 import subprocess
 
 root = pathlib.Path(__file__).resolve().parent.parent
-files = [file for file in root.iterdir() if file.is_file() and file.name != '.zentouch-signing-identity']
+files = [file for file in root.iterdir() if file.is_file() and file.name not in ('.zentouch-signing-identity', '.git')]
 for directory in ('Sources', 'Tests', 'Resources', 'docs', 'scripts', '.github'):
     files.extend(file for file in (root / directory).rglob('*') if file.is_file() and '__pycache__' not in file.parts)
 for file in files:

@@ -16,16 +16,25 @@ public final class WindowEventFactory {
         let frame = CGRect(
             x: target.bounds.minX, y: height - target.bounds.maxY,
             width: target.bounds.width, height: target.bounds.height)
-        if template == nil {
-            _ = NSApplication.shared
-            let window = NSWindow(contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
-            window.isReleasedWhenClosed = false
-            window.ignoresMouseEvents = true
-            window.isExcludedFromWindowsMenu = true
-            template = window
+        let coordinateWindow: NSWindow
+        if target.pid == getpid(), let local = NSApplication.shared.window(withWindowNumber: Int(target.id)) {
+            // AppKit can resolve its own seed window before considering the
+            // retargeted CG metadata. A template here sends clicks to the hidden
+            // template instead of Settings, despite a correct destination field.
+            coordinateWindow = local
+        } else {
+            if template == nil {
+                _ = NSApplication.shared
+                let window = NSWindow(contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
+                window.isReleasedWhenClosed = false
+                window.ignoresMouseEvents = true
+                window.isExcludedFromWindowsMenu = true
+                template = window
+            }
+            guard let template else { return nil }
+            template.setFrame(frame, display: false)
+            coordinateWindow = template
         }
-        guard let template else { return nil }
-        template.setFrame(frame, display: false)
         let nsType: NSEvent.EventType
         switch source.type {
         case .leftMouseDown: nsType = .leftMouseDown
@@ -40,7 +49,7 @@ public final class WindowEventFactory {
             let event = NSEvent.mouseEvent(
                 with: nsType, location: target.localPoint(source.location),
                 modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(source.flags.rawValue)),
-                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: template.windowNumber,
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: coordinateWindow.windowNumber,
                 context: nil, eventNumber: 1,
                 clickCount: Int(source.getIntegerValueField(.mouseEventClickState)),
                 pressure: nsType == .leftMouseUp || nsType == .rightMouseUp ? 0 : 1)?.cgEvent,
