@@ -30,9 +30,13 @@ func localWindowEventsKeepTheirAppKitWindowIdentity() throws {
     let window = NSWindow(contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
     defer { window.close() }
+    // Production hit testing only routes to on-screen windows. Register the
+    // fixture with WindowServer before asking AppKit to round-trip coordinates.
+    window.orderFront(nil)
+    let actual = window.frame
     let bounds = CGRect(
-        x: frame.minX, y: CGDisplayBounds(CGMainDisplayID()).height - frame.maxY,
-        width: frame.width, height: frame.height)
+        x: actual.minX, y: CGDisplayBounds(CGMainDisplayID()).height - actual.maxY,
+        width: actual.width, height: actual.height)
     let target = InputWindow(id: CGWindowID(window.windowNumber), pid: getpid(), bounds: bounds)
     let factory = WindowEventFactory()
     let point = CGPoint(x: bounds.minX + 180, y: bounds.minY + 80)
@@ -42,7 +46,14 @@ func localWindowEventsKeepTheirAppKitWindowIdentity() throws {
         let routed = try require(factory.make(source, target: target))
         let native = try require(NSEvent(cgEvent: routed))
         try expect(native.windowNumber == window.windowNumber)
-        try expect(abs(native.locationInWindow.x - 180) < 0.01 && abs(native.locationInWindow.y - 220) < 0.01)
+        let expected = target.localPoint(point)
+        if abs(native.locationInWindow.x - expected.x) >= 0.01 || abs(native.locationInWindow.y - expected.y) >= 0.01 {
+            print(
+                "Local event geometry: window=\(window.frame), display=\(CGDisplayBounds(CGMainDisplayID())), received=\(native.locationInWindow), expected=\(expected)"
+            )
+        }
+        try expect(
+            abs(native.locationInWindow.x - expected.x) < 0.01 && abs(native.locationInWindow.y - expected.y) < 0.01)
     }
     for delta in [-0.125, 0.125] {
         let source = try MagnificationEvents.make(location: point, delta: delta, phase: .changed)
