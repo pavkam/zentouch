@@ -33,6 +33,6 @@ security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
     -k "$zentouch_release_password" "$zentouch_release_keychain" >/dev/null
 security list-keychains -d user -s "$zentouch_release_keychain"
 security find-identity -v -p codesigning "$zentouch_release_keychain" | \
-    rg -qi -- "$ZENTOUCH_CERTIFICATE_SHA1" || { print -u2 'Release certificate fingerprint mismatch.'; exit 1; }
+    /usr/bin/grep -Fqi -- "$ZENTOUCH_CERTIFICATE_SHA1" || { print -u2 'Release certificate fingerprint mismatch.'; exit 1; }
 print "ZENTOUCH_SIGNING_IDENTITY=$ZENTOUCH_CERTIFICATE_SHA1" >> "$GITHUB_ENV"
 print 'Stable release signing identity ready.'
