@@ -5,6 +5,7 @@ import AppKit
 import ZenTouchMac
 
 final class MenuBarController: NSObject, NSMenuDelegate {
+    var iconSize: NSSize? { item.button?.image?.size }
     var isVisible: Bool { item.isVisible }
     var requestedInputCanBeStopped: Bool { toggle.state == .on && toggle.isEnabled }
     var canStart: Bool { toggle.state == .off && toggle.isEnabled }
@@ -12,7 +13,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let connectedIcon = MenuBarController.icon("MenuBarTemplate", fallback: "hand.tap")
     private let disconnectedIcon = MenuBarController.icon(
         "MenuBarDisconnectedTemplate", fallback: "display.trianglebadge.exclamationmark")
-    private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    private let item = NSStatusBar.system.statusItem(withLength: 32)
     private let toggle = NSMenuItem(title: "Active", action: nil, keyEquivalent: "")
     private let input = NSMenuItem(title: "Input Monitoring", action: nil, keyEquivalent: "")
     private let accessibility = NSMenuItem(title: "Accessibility", action: nil, keyEquivalent: "")
@@ -28,6 +29,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         super.init()
         item.autosaveName = "ZenTouchStatusItem"
         item.button?.image = disconnectedIcon
+        item.button?.imageScaling = .scaleNone
         item.button?.setAccessibilityLabel("ZenTouch")
         let menu = NSMenu(title: AppIdentity.name)
         menu.autoenablesItems = false
@@ -48,12 +50,21 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(action("Quit ZenTouch", #selector(quit), key: "q"))
         item.menu = menu
     }
+    func openForMediaCapture(_ ready: @escaping () -> Void) {
+        let capture = Timer(timeInterval: 0.4, repeats: false) { _ in ready() }
+        RunLoop.main.add(capture, forMode: .common)
+        let timeout = Timer(timeInterval: 30, repeats: false) { [weak self] _ in self?.closeForMediaCapture() }
+        RunLoop.main.add(timeout, forMode: .common)
+        item.button?.performClick(nil)
+        timeout.invalidate()
+    }
+    func closeForMediaCapture() { item.menu?.cancelTrackingWithoutAnimation() }
     private static func icon(_ name: String, fallback: String) -> NSImage? {
         let image =
             Bundle.main.url(forResource: name, withExtension: "png").flatMap { NSImage(contentsOf: $0) }
             ?? NSImage(systemSymbolName: fallback, accessibilityDescription: "ZenTouch")
         image?.isTemplate = true
-        image?.size = NSSize(width: 18, height: 18)
+        image?.size = NSSize(width: 27, height: 27)
         return image
     }
     private func bind(_ item: NSMenuItem, _ selector: Selector) {

@@ -53,15 +53,34 @@ public struct GestureEngine {
     private var swipe: ThreeFingerSwipe?
     private let width: Double
     private let height: Double
-    public let pinchEnabled: Bool
-    public let swipesEnabled: Bool
+    public private(set) var options: GestureOptions
+    public var pinchEnabled: Bool { options.pinch }
+    public var swipesEnabled: Bool { options.hasThreeFingerGesture }
     public var hasActiveGesture: Bool { mode != .idle && mode != .suppress }
 
     public init(width: Double, height: Double, pinchEnabled: Bool = false, swipesEnabled: Bool = true) {
+        self.init(
+            width: width, height: height,
+            options: GestureOptions(
+                pinch: pinchEnabled, desktops: swipesEnabled,
+                missionControl: swipesEnabled, appExpose: swipesEnabled))
+    }
+
+    public init(width: Double, height: Double, options: GestureOptions) {
         self.width = width
         self.height = height
-        self.pinchEnabled = pinchEnabled
-        self.swipesEnabled = swipesEnabled
+        self.options = options
+    }
+
+    /// Finish the old gesture before changing its rules. Fingers already down
+    /// cannot become a fresh click or a newly enabled gesture.
+    public mutating func updateOptions(_ options: GestureOptions) -> [InputAction] {
+        guard self.options != options else { return [] }
+        let hadContacts = mode != .idle
+        let actions = cancel()
+        self.options = options
+        if hadContacts { mode = .suppress }
+        return actions
     }
 
     public mutating func cancel() -> [InputAction] {
@@ -98,12 +117,12 @@ public struct GestureEngine {
             if mode == .single {
                 if dragging {
                     actions.append(.up(last))
-                } else if time - beganAt <= 0.5 {
+                } else if options.clicks, time - beganAt <= 0.5 {
                     actions.append(.click(last, right: false))
-                } else {
+                } else if options.clicks {
                     actions.append(.click(last, right: true))
                 }
-            } else if mode == .pair, pairTap, time - beganAt <= 0.5 {
+            } else if mode == .pair, options.clicks, pairTap, time - beganAt <= 0.5 {
                 actions.append(.click(last, right: true))
             } else if mode == .scroll {
                 actions.append(.scroll(start, dx: 0, dy: 0, phase: .ended))
@@ -135,8 +154,8 @@ public struct GestureEngine {
                 startDistance = points[0].distance(to: points[1])
                 lastDistance = startDistance
             }
-            if mode == .triple { swipe = ThreeFingerSwipe(points: points, time: time) }
-            return [.move(start)]
+            if mode == .triple { swipe = ThreeFingerSwipe(points: points, time: time, options: options) }
+            return initialMovement()
         }
         if newIDs != ids {
             // First lift ends a swipe; residual fingers cannot click or scroll.
@@ -156,11 +175,11 @@ public struct GestureEngine {
                 ids = newIDs
                 start = centroid(points)
                 last = start
-                swipe = ThreeFingerSwipe(points: points, time: time)
+                swipe = ThreeFingerSwipe(points: points, time: time, options: options)
                 return [.move(start)]
             }
             if mode == .pair, sorted.count == 1, ids.contains(newIDs[0]), pairTap, time - beganAt <= 0.5 {
-                actions.append(.click(last, right: true))
+                if options.clicks { actions.append(.click(last, right: true)) }
                 mode = .suppress
                 return actions
             }
@@ -174,7 +193,7 @@ public struct GestureEngine {
                 last = start
                 startDistance = points[0].distance(to: points[1])
                 lastDistance = startDistance
-                return [.move(start)]
+                return initialMovement()
             }
             actions += cancel()
             mode = .suppress
@@ -184,11 +203,11 @@ public struct GestureEngine {
         if mode == .triple {
             actions += swipe?.process(points: points, time: time) ?? []
         } else if mode == .single {
-            if !dragging, start.distance(to: center) >= 8 {
+            if options.clicks, !dragging, start.distance(to: center) >= 8 {
                 dragging = true
                 actions.append(.down(start))
             }
-            actions.append(dragging ? .drag(center) : .move(center))
+            if options.clicks { actions.append(dragging ? .drag(center) : .move(center)) }
         } else {
             let distance = points[0].distance(to: points[1])
             if mode == .pair {
@@ -197,8 +216,9 @@ public struct GestureEngine {
                 if travel >= 8 || spread >= 12 { pairTap = false }
                 if pinchEnabled, startDistance > 10, spread >= 12, spread > travel * 1.5 {
                     mode = .pinch
+                    lastDistance = startDistance
                     actions.append(.magnify(start, delta: 0, phase: .began))
-                } else if travel >= 8, travel > spread * 0.6 {
+                } else if options.scrolling, travel >= 8, travel > spread * 0.6 {
                     mode = .scroll
                     actions.append(.scroll(start, dx: 0, dy: 0, phase: .began))
                 }
@@ -213,6 +233,12 @@ public struct GestureEngine {
         }
         last = center
         return actions
+    }
+
+    private func initialMovement() -> [InputAction] {
+        if mode == .single && !options.clicks { return [] }
+        if mode == .pair && !options.clicks && !options.scrolling && !options.pinch { return [] }
+        return [.move(start)]
     }
 
     private func centroid(_ points: [Point]) -> Point {

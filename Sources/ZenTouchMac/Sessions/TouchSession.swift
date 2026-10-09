@@ -61,12 +61,16 @@ public final class TouchSession {
 
     public func start(
         kind: SessionKind, target: ScreenTarget?, pinch: Bool = false, multitouch: Bool = true,
-        swipes: Bool = true
+        swipes: Bool = true, options: GestureOptions? = nil
     ) throws {
         precondition(Thread.isMainThread)
         guard !state.isRunning else {
             throw ZenError(message: "Touch input is already running. Stop it before starting another session.")
         }
+        let gestureOptions =
+            options
+            ?? GestureOptions(
+                pinch: pinch, desktops: swipes, missionControl: swipes, appExpose: swipes)
         let permissions = environment.permissions()
         guard permissions.inputMonitoring else {
             throw ZenError(message: "Allow ZenTouch Input Monitoring, then quit and reopen it.")
@@ -74,7 +78,9 @@ public final class TouchSession {
         diagnostics.record(
             "session.start",
             [
-                "kind": kind.rawValue, "pinch": pinch, "multitouch": multitouch, "swipes": swipes,
+                "kind": kind.rawValue, "pinch": gestureOptions.pinch, "multitouch": multitouch,
+                "swipes": gestureOptions.hasThreeFingerGesture,
+                "gestures": GestureFeature.allCases.filter { gestureOptions[$0] }.map(\.rawValue),
                 "target": target?.name ?? "none", "displayID": target?.id ?? 0,
             ])
         if kind == .input {
@@ -92,10 +98,11 @@ public final class TouchSession {
             }
             self.target = target
             initialGeometry = geometry
-            sink = makeSink(target, geometry, pinch)
+            sink = makeSink(target, geometry, gestureOptions.pinch)
+            sink?.updateOptions(gestureOptions)
             engine = GestureEngine(
                 width: geometry.bounds.width, height: geometry.bounds.height,
-                pinchEnabled: pinch, swipesEnabled: swipes)
+                options: gestureOptions)
         }
         reader.onMultitouchObserved = { [weak self] in
             self?.onStatus?(
@@ -143,6 +150,18 @@ public final class TouchSession {
             RunLoop.main.add(timer, forMode: .common)
             self.timer = timer
         }
+    }
+
+    public func updateGestureOptions(_ options: GestureOptions) {
+        precondition(Thread.isMainThread)
+        guard var engine, engine.options != options else { return }
+        let actions = engine.updateOptions(options)
+        self.engine = engine
+        // Cancel the old pinch while the sink still permits its terminal event.
+        for action in actions { sink?.emit(action) }
+        sink?.updateOptions(options)
+        diagnostics.record(
+            "session.gestures.changed", ["enabled": GestureFeature.allCases.filter { options[$0] }.map(\.rawValue)])
     }
 
     public func poll() {

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import Foundation
+import ZenTouchCore
 
 /// User intent survives temporary USB/display loss. Explicit Stop and contact
 /// testing clear it. Failed reopen attempts back off without opening Settings.
@@ -25,9 +26,9 @@ public final class SessionRecovery {
         nextAttempt = 0
         retryDelay = 1
     }
-    public func startInput(target: ScreenTarget?, pinch: Bool, swipes: Bool) throws {
+    public func startInput(target: ScreenTarget?, pinch: Bool, swipes: Bool, options: GestureOptions? = nil) throws {
         do {
-            try session.start(kind: .input, target: target, pinch: pinch, swipes: swipes)
+            try session.start(kind: .input, target: target, pinch: pinch, swipes: swipes, options: options)
             nextAttempt = 0
             retryDelay = 1
         } catch {
@@ -37,7 +38,8 @@ public final class SessionRecovery {
         }
     }
     @discardableResult public func refresh(
-        available: Bool, suspended: Bool, target: ScreenTarget?, pinch: Bool = false, swipes: Bool = true
+        available: Bool, suspended: Bool, target: ScreenTarget?, pinch: Bool = false, swipes: Bool = true,
+        options: GestureOptions? = nil
     ) -> Result {
         session.poll()
         // Display/HID enumeration may change before the session's own snapshot.
@@ -56,7 +58,7 @@ public final class SessionRecovery {
         }
         guard now() >= nextAttempt else { return .idle }
         do {
-            try startInput(target: target, pinch: pinch, swipes: swipes)
+            try startInput(target: target, pinch: pinch, swipes: swipes, options: options)
             return .started
         } catch { return .failed(error.localizedDescription) }
     }

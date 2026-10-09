@@ -32,6 +32,13 @@ func expectThrows<E: Error>(_ type: E.Type, _ body: () throws -> Any?) throws {
             return
         }
         let checks: [(String, () throws -> Void)] = [
+            ("disabled clicks retain scroll and pinch", disabledClicksStillAllowTwoFingerScrollingAndZoom),
+            ("disabled scroll suppresses residual taps", disabledScrollingNeverConvertsMotionToSecondaryClick),
+            ("live gesture change cancellation and lift", gestureChangesReleaseActiveInputAndSuppressUntilLift),
+            ("all gestures disabled", allGesturesDisabledProduceNoInput),
+            ("separate three-finger directions", threeFingerDirectionsAreIndependentlyEnabled),
+            ("native pinch event phases and invalid values", magnificationEventsConvertToNativeAppKitPhases),
+            ("own-window AppKit event identity", localWindowEventsKeepTheirAppKitWindowIdentity),
             ("login item first registration and bundle boundary", loginItemFirstRegistrationIsAvailableInAppBundle),
             ("login item system status and approval", loginItemUsesSystemStatusAndHandlesApproval),
             ("login item registration/removal failures", loginItemFailuresNeverPretendRegistrationSucceeded),
@@ -74,6 +81,8 @@ func expectThrows<E: Error>(_ type: E.Type, _ body: () throws -> Any?) throws {
             ("oversized log records and recovery", loggerBoundsOversizedRecordsAndRecoversFromInvalidFields),
             ("session permission gates", sessionPermissionsAreCheckedBeforeOpening),
             ("session display validation", sessionRejectsUnsupportedGeometry),
+            ("live gesture cancellation and recovery options", liveGestureOptionsCancelBeforeDisablingAndRecover),
+            ("pinch threshold and disabled swipe reversal", pinchIncludesThresholdTravelAndVerticalReversalCancels),
             ("duplicate session start", duplicateStartPreservesActiveDrag),
             ("failed session startup", failedStartClearsReaderAndCallbacks),
             ("idempotent stop and drag release", sessionStopIsIdempotentAndReleasesDrag),

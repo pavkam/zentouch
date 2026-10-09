@@ -126,8 +126,8 @@ for base in [16, 32, 128, 256, 512] {
         try iconPNG(size: base * scale).write(to: iconset.appendingPathComponent(name))
     }
 }
-try iconPNG(size: 36, template: true).write(to: destination.appendingPathComponent("MenuBarTemplate.png"))
-try iconPNG(size: 36, template: true, disconnected: true).write(
+try iconPNG(size: 54, template: true).write(to: destination.appendingPathComponent("MenuBarTemplate.png"))
+try iconPNG(size: 54, template: true, disconnected: true).write(
     to: destination.appendingPathComponent("MenuBarDisconnectedTemplate.png"))
 try iconPNG(size: 1024).write(to: destination.appendingPathComponent("app-icon.png"))
 try render(width: 1600, height: 640) {

@@ -144,7 +144,7 @@ Display matching uses complete model tokens, ignoring case and punctuation. A sh
 
 `VerticalSwipeCommit` commits Mission Control (up) or App Exposé (down) once on lift after at least 0.2 progress, provided the final movement is away from the origin. Reversal, cancellation, invalid input or short travel discards the command. `DockActions` resolves `CoreDockSendNotification` in HIServices at runtime; this native Dock command opens the same system view but is discrete rather than a finger-tracked animation. The vertical serialized event path did not respond in live testing on this Mac, so it is not posted alongside the command.
 
-The checkbox is enabled by default and saved separately from macOS trackpad preferences. Stop input before changing it. Automated checks use injected posters and never trigger Mission Control or switch desktops. The normal app logs horizontal `input.swipe.post`, vertical `input.systemGesture.post` and `app.activeSpace.changed`; the latter can corroborate a horizontal desktop transition but does not identify which input device caused it. A three-finger upward swipe opening Mission Control is confirmed on the attached MB16AMTR; desktop switching and App Exposé still need live confirmation.
+Each three-finger direction has an independent switch in Settings → Gestures. Changes are saved separately from macOS trackpad preferences and can be applied while input runs. Automated checks use injected posters and never trigger Mission Control or switch desktops. The normal app logs horizontal `input.swipe.post`, vertical `input.systemGesture.post` and `app.activeSpace.changed`; the latter can corroborate a horizontal desktop transition but does not identify which input device caused it. A three-finger upward swipe opening Mission Control is confirmed on the attached MB16AMTR; desktop switching and App Exposé still need live confirmation.
 
 ## Monitor sleep and reconnect recovery
 
@@ -174,10 +174,28 @@ See [the platform investigation](feasibility.md) and [the quality pass](quality-
 
 ## Stationary-pointer routing
 
-The GUI's saved **Keep pointer stationary (experimental)** checkbox selects `WindowEventRouter` when a session starts; normal input and the CLI bridge keep the HID-tap poster. Stop before changing the option. The same factory is used by automatic reconnects.
+The GUI's saved **Keep pointer stationary (experimental)** checkbox selects `WindowEventRouter` when a session starts; normal input and the CLI bridge keep the HID-tap poster. Uncheck Active before changing the option. The same factory is used by automatic reconnects.
 
 The router reads WindowServer IDs, owner PIDs and bounds in front-to-back order, without taking screenshots or reading window titles. It excludes ZenTouch's mouse-transparent overlay windows. Accessibility hit testing resolves interactive windows beneath utility overlays that WindowServer still reports; regular-app windows provide a fallback when no AX hit is available. A button press activates the touched application and raises a matching window through Accessibility; queued events wait briefly for activation and revalidate the owner before delivery. Drags and phased scrolling stay attached to their original window. Window disappearance and ID reuse discard events; this backend never falls back to a global pointer post.
 
 `WindowEventFactory` uses a hidden borderless AppKit window with the target's current geometry to construct window-local event coordinates. Setting only `CGEvent.location` gave incorrect receiver coordinates in the foreign-process experiment. The factory changes the destination PID and window metadata, preserves click counts, modifiers and fractional scroll fields, then posts with `CGEvent.postToPid`. Window identity uses undocumented field 51. This is an experimental OS adapter, separate from the ordinary public mouse/scroll path.
 
 Logs add `app.pointerMode.changed`, `input.window.post` and transition-limited `input.window.drop` records. Automated routing checks inject window lists, activation scheduling and event delivery, so they never click other apps. The separate native-control diagnostic is restricted to an owned receiver process. AppKit controls establish a useful baseline; desktop/menu bar behavior, menu tracking, cross-application drop operations and other app frameworks require live compatibility testing.
+
+## Gesture settings and pinch zoom
+
+`GestureOptions` in ZenTouchCore holds independent click, scroll, pinch, desktop, Mission Control and App Exposé switches. GUI preferences use `gesture.<feature>` keys and fall back to explicit legacy pinch/three-finger values. New installations enable all features. `TouchSession.updateGestureOptions` emits cancellation with the old sink settings before updating the sink, then waits for complete lift. Recovery receives the full stored options on every reopen; no HID reopen is needed for a live switch change.
+
+`MagnificationEvents` isolates the undocumented CG-to-AppKit magnify fields. Only changed phases carry finite, bounded deltas; begin/end/cancel carry zero. The engine uses finger distance ratios and includes threshold travel in the first delta. Scroll and pinch lock once recognized, and remaining contacts cannot turn into clicks. The stationary router captures the original pinch window, maintains its local coordinates and refuses closed or reused targets.
+
+Settings separates Touch, Gestures and App controls in a fixed 760 × 770-point window with an Active checkbox. All six cards fit without a scroll view. Gesture cards draw local demonstrations only; their timer runs while the Gestures section is visible and unoccluded, stops on close, and respects Reduce Motion. The signed smoke check verifies every tab at the fixed size, independent switch states, animation lifecycle, preference migration, permission states and disconnected controls. Its PNGs render only ZenTouch's own view hierarchy.
+
+A local separate-process diagnostic passed production engine → EventSink → WindowEventRouter delivery into native `NSScrollView` magnification, `NSMagnificationGestureRecognizer` and responder handlers with no pointer movement. This verifies event delivery on the tested OS, not every application's pinch support or physical controller use.
+
+For events directed at ZenTouch's own process, `WindowEventFactory` seeds the real destination `NSWindow` rather than its hidden foreign-window template. AppKit resolves a known seed window before retargeted CG metadata; using the template caused clicks to land in a hidden window even though hit testing and CG field 51 identified Settings correctly. Native controls and keyboard/accessibility navigation remain standard AppKit behavior.
+
+## Screenshots for documentation
+
+`--capture-media <directory>` exports the three real Settings tabs and the menu on macOS 14.4+. It uses `SCShareableContent.currentProcess` and verifies the owner PID before capturing a window. Capture never falls back to desktop or foreign-window enumeration and does not request Screen Recording access. Menu screenshots use background callbacks while AppKit runs its nested tracking loop, then close the menu on the main run loop. Normal launches never capture media.
+
+See [the media gallery](media/README.md) for refresh instructions. The PNGs ship with local Help, and bundle verification requires all four images. The README uses the same captures.

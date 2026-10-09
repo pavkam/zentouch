@@ -29,7 +29,13 @@ private final class FakeReader: TouchReading {
 }
 private final class FakeSink: EventPosting {
     var actions: [InputAction] = []
-    func emit(_ action: InputAction) { actions.append(action) }
+    var options = GestureOptions()
+    var cancellationsWhilePinchEnabled = 0
+    func updateOptions(_ options: GestureOptions) { self.options = options }
+    func emit(_ action: InputAction) {
+        actions.append(action)
+        if case .magnify(_, _, .cancelled) = action, options.pinch { cancellationsWhilePinchEnabled += 1 }
+    }
 }
 private final class Fixture {
     var now = 0.0
@@ -350,4 +356,33 @@ func attachOrdersRequireBothDisplayAndController() throws {
         controller = true
         try expect(refresh() == .idle && f.reader.starts == 1)  // Stop prevents reconnection from enabling input.
     }
+}
+
+func liveGestureOptionsCancelBeforeDisablingAndRecover() throws {
+    let f = Fixture()
+    let options = GestureOptions(
+        clicks: false, scrolling: false, desktops: false, missionControl: true, appExpose: false)
+    let recovery = SessionRecovery(session: f.session, now: { f.now })
+    recovery.request(true)
+    _ = recovery.refresh(available: true, suspended: false, target: f.target, options: options)
+    try expect(f.sink.options == options)
+    f.reader.send([Touch(id: 0, x: 0.4, y: 0.5), Touch(id: 1, x: 0.5, y: 0.5)])
+    f.now = 0.1
+    f.reader.send([Touch(id: 0, x: 0.38, y: 0.5), Touch(id: 1, x: 0.52, y: 0.5)])
+    var disabled = options
+    disabled.pinch = false
+    f.session.updateGestureOptions(disabled)
+    try expect(f.sink.cancellationsWhilePinchEnabled == 1 && f.sink.options == disabled)
+    let count = f.sink.actions.count
+    f.reader.send([Touch(id: 0, x: 0.38, y: 0.5)])
+    f.reader.send([])
+    try expect(f.sink.actions.count == count && f.reader.starts == 1)
+    _ = recovery.refresh(available: false, suspended: false, target: f.target, options: disabled)
+    f.now = 1
+    _ = recovery.refresh(available: true, suspended: false, target: f.target, options: disabled)
+    try expect(f.reader.starts == 2 && f.sink.options == disabled)
+    f.reader.send([Touch(id: 0, x: 0.4, y: 0.5)])
+    f.now = 1.1
+    f.reader.send([])
+    try expect(f.sink.actions.count == count)
 }
