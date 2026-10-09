@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "researchedAt": "2026-10-06",
+  "researchedAt": "2026-10-09",
   "manufacturer": "ASUS",
   "models": [
     {
@@ -21,7 +21,7 @@
         "MB16AMT"
       ],
       "touchPoints": 10,
-      "source": "https://www.asus.com/us/displays-desktops/monitors/portable/zenscreen-touch-mb16amt/",
+      "source": "https://www.asus.com/displays-desktops/monitors/zenscreen/zenscreen-touch-mb16amt/",
       "status": "unverified"
     },
     {
@@ -51,7 +51,17 @@
         "PA148CTV"
       ],
       "touchPoints": 10,
-      "source": "https://www.asus.com/global/support/faq/1047313/",
+      "source": "https://www.asus.com/displays-desktops/monitors/proart/proart-display-pa148ctv/",
+      "status": "unverified"
+    },
+    {
+      "model": "PA147CDV",
+      "family": "ProArt",
+      "displayNames": [
+        "PA147CDV"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/us/displays-desktops/monitors/proart/proart-display-pa147cdv/",
       "status": "unverified"
     },
     {
@@ -81,7 +91,17 @@
         "VT229H"
       ],
       "touchPoints": 10,
-      "source": "https://www.asus.com/global/support/faq/1047313/",
+      "source": "https://www.asus.com/displays-desktops/monitors/touch/vt229h/",
+      "status": "unverified"
+    },
+    {
+      "model": "VT169HE",
+      "family": "Touch",
+      "displayNames": [
+        "VT169HE"
+      ],
+      "touchPoints": 10,
+      "source": "https://www.asus.com/displays-desktops/monitors/touch/vt169he/",
       "status": "unverified"
     },
     {
@@ -91,7 +111,7 @@
         "VT168HR"
       ],
       "touchPoints": 10,
-      "source": "https://www.asus.com/displays-desktops/monitors/touch/vt168hr/",
+      "source": "https://www.asus.com/us/displays-desktops/monitors/touch/vt168hr/",
       "status": "unverified"
     },
     {
@@ -101,7 +121,7 @@
         "VT168H"
       ],
       "touchPoints": 10,
-      "source": "https://www.asus.com/global/support/faq/1047313/",
+      "source": "https://www.asus.com/support/faq/1047313/",
       "status": "unverified"
     },
     {
@@ -111,7 +131,7 @@
         "VT168N"
       ],
       "touchPoints": 10,
-      "source": "https://www.asus.com/global/support/faq/1047313/",
+      "source": "https://www.asus.com/support/faq/1047313/",
       "status": "unverified"
     },
     {
@@ -121,7 +141,7 @@
         "VT207N"
       ],
       "touchPoints": 10,
-      "source": "https://www.asus.com/event/2016/productguide/id/Product%20Guide%20monitor_projector%202016_issue01.pdf",
+      "source": "https://www.asus.com/uk/displays-desktops/monitors/all-series/vt207n/",
       "status": "unverified"
     },
     {
