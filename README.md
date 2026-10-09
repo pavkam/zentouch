@@ -14,11 +14,27 @@ ZenTouch lets you use your ASUS touchscreen on a Mac: tap to click, drag with on
 
 ## Supported monitors
 
-| Monitor | Support |
-| --- | --- |
-| **ASUS ZenScreen Touch MB16AMTR** | Tested with ZenTouch on macOS 27 |
+**ASUS ZenScreen Touch MB16AMTR is tested with ZenTouch on macOS 27.** The other monitors below are potential candidates: ASUS documents ten-point touch for them, but we haven't tested their USB touch controllers with ZenTouch.
 
-That's the supported model today. The [full model list](docs/supported-models.md) also covers 12 other ASUS touchscreens, clearly marked **not tested**. They need compatibility testing before ZenTouch can support them. A similar model name doesn't mean the same touch controller.
+| Product (ASUS source) | ZenTouch status |
+| --- | --- |
+| [ASUS ZenScreen Touch MB16AMTR](https://www.asus.com/displays-desktops/monitors/zenscreen/asus-zenscreen-touch-mb16amtr/) | **Tested and supported** |
+| [ASUS ZenScreen Touch MB16AMT](https://www.asus.com/displays-desktops/monitors/zenscreen/zenscreen-touch-mb16amt/) | Potential — untested |
+| [ASUS ZenScreen Touch MB16AHT](https://www.asus.com/displays-desktops/monitors/zenscreen/zenscreen-touch-mb16aht/) | Potential — untested |
+| [ASUS ZenScreen Ink MB14AHD](https://www.asus.com/displays-desktops/monitors/zenscreen/zenscreen-ink-mb14ahd/) | Potential — untested |
+| [ASUS ProArt Display PA148CTV](https://www.asus.com/displays-desktops/monitors/proart/proart-display-pa148ctv/) | Potential — untested |
+| [ASUS ProArt Display PA147CDV Creative Tool](https://www.asus.com/us/displays-desktops/monitors/proart/proart-display-pa147cdv/) | Potential — untested |
+| [ASUS ProArt Display PA169CDV](https://www.asus.com/displays-desktops/monitors/proart/proart-display-pa169cdv/) | Potential — untested |
+| [ASUS BE24ECSBT Multi-touch Monitor](https://www.asus.com/displays-desktops/monitors/business/be24ecsbt/) | Potential — untested |
+| [ASUS VT229H Touch Monitor](https://www.asus.com/displays-desktops/monitors/touch/vt229h/) | Potential — untested |
+| [ASUS VT169HE Touch Monitor](https://www.asus.com/displays-desktops/monitors/touch/vt169he/) | Potential — untested |
+| [ASUS VT168HR Touch Monitor](https://www.asus.com/us/displays-desktops/monitors/touch/vt168hr/) | Potential — untested |
+| [ASUS VT168H Touch Monitor](https://www.asus.com/support/faq/1047313/) | Potential — untested, discontinued |
+| [ASUS VT168N Touch Monitor](https://www.asus.com/support/faq/1047313/) | Potential — untested, discontinued |
+| [ASUS VT207N Touch Monitor](https://www.asus.com/uk/displays-desktops/monitors/all-series/vt207n/) | Potential — untested, legacy |
+| [ROG Strix XG129C Touchscreen Gaming Monitor](https://rog.asus.com/au/monitors/accessories/rog-strix-xg129c/) | Potential — untested |
+
+Sources rechecked on **9 October 2026**. “Potential” means a candidate for compatibility work, not support in the current app. Only the MB16AMTR is enabled today; other models may need a new controller profile before they can work. A similar model name doesn't mean the same touch controller. See the [compatibility notes](docs/supported-models.md) to help test another model.
 
 You need **macOS 14 or later** and a USB connection that carries data as well as the screen's video connection. The downloadable preview is for **Apple silicon Macs**. Keep the touchscreen at **0° rotation**; rotated displays aren't supported yet.
 
